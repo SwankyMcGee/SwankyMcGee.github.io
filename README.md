@@ -10,7 +10,7 @@ The site behind the collection — the menu and staff resources for every tool.
 
 | Page | What it is |
 |---|---|
-| `index.html` | Home — a chooser: **Tools** or **Resources** |
+| `index.html` | Home — shed hero, chooser **doors** (Tools / Resources), jump-back card, quick links, what's-new ribbon |
 | `tools.html` | Tools hub — cards for each tool (currently: the Work Cycle Timer + The Ideas Engine) |
 | `resources.html` | Resources hub — dropdown picks the tool, then its resource cards load on the page |
 | `quick-start.html` | Work Cycle Timer quick start (one page) |

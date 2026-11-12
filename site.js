@@ -27,6 +27,24 @@ const THEMES = [
   { id: 'warm',     name: 'Warm dark (sepia)',          chips: ['#211a14', '#2b221a', '#f0e6da', '#d9a05f', '#93b877'] }
 ];
 
+/* Site-only state (the menu/docs pages — the timer doesn't read this):
+   the last guide visited, for the home page's jump-back card. */
+const SITE_KEY = 'workCycleTimer.site.v1';
+
+/* Version of the "what's new" ribbon — bump it to show a fresh message. */
+const NEWS_VERSION = '2026-11';
+
+/* Friendly names for the jump-back card. Hubs (tools/resources) are
+   never recorded — they're already doors on the home page. */
+const PAGE_NAMES = {
+  'quick-start.html': 'Quick start',
+  'user-guide.html': 'User guide',
+  'settings-ref.html': 'Settings reference',
+  'troubleshooting.html': 'Troubleshooting',
+  'scenarios.html': 'Scenarios',
+  'glossary.html': 'Glossary'
+};
+
 /* Read the shared setting. Never trust it: unknown ids fall back to
    calm, exactly like the timer validates on load. */
 function readTheme() {
@@ -40,18 +58,54 @@ function readTheme() {
   return 'calm';
 }
 
-/* Write back the palette while preserving every other setting (the
-   timer's durations, music, etc.) — read, patch one field, write. */
-function writeTheme(id) {
+/* Write back fields of the shared setting while preserving every other
+   one (the timer's durations, music, etc.) — read, patch, write. */
+function patchSettings(fields) {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const s = raw ? JSON.parse(raw) : {};
     if (!s || typeof s !== 'object') return false;
-    s.theme = id;
+    Object.assign(s, fields);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
     return true;
   } catch (err) {
-    return false;   // still switch for this visit; it just won't persist
+    return false;   // still apply for this visit; it just won't persist
+  }
+}
+
+function writeTheme(id) {
+  return patchSettings({ theme: id });
+}
+
+/* Home background patterns: on unless the shared setting says off. */
+function motifsOn() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      if (s && s.homeMotifs === false) return false;
+    }
+  } catch (err) { /* blocked storage — default on */ }
+  return true;
+}
+
+function syncMotifs() {
+  const on = motifsOn();
+  document.documentElement.classList.toggle('motifs-off', !on);
+  const btn = document.getElementById('motifBtn');
+  if (btn) {
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const state = document.getElementById('motifState');
+    if (state) state.textContent = on ? 'On' : 'Off';
+  }
+}
+
+/* Has this version of the what's-new ribbon been dismissed? */
+function newsDismissed() {
+  try {
+    return localStorage.getItem('workCycleTimer.site.news') === NEWS_VERSION;
+  } catch (err) {
+    return false;
   }
 }
 
@@ -142,6 +196,27 @@ function injectPicker() {
     panel.appendChild(row);
   }
 
+  /* Toggle for the home page's background patterns (off switch lives
+     right beside the palettes it decorates). */
+  const motifBtn = document.createElement('button');
+  motifBtn.type = 'button';
+  motifBtn.className = 'motif-btn';
+  motifBtn.id = 'motifBtn';
+  motifBtn.setAttribute('aria-pressed', 'true');
+  motifBtn.title = 'Gentle background patterns on the home page';
+  const motifLabel = document.createElement('span');
+  motifLabel.textContent = 'Background patterns';
+  const motifState = document.createElement('span');
+  motifState.className = 'motif-state';
+  motifState.id = 'motifState';
+  motifState.textContent = 'On';
+  motifBtn.append(motifLabel, motifState);
+  motifBtn.addEventListener('click', () => {
+    patchSettings({ homeMotifs: !motifsOn() });
+    syncMotifs();
+  });
+  panel.appendChild(motifBtn);
+
   btn.addEventListener('click', togglePanel);
   wrap.append(btn, panel);
   head.appendChild(wrap);
@@ -155,20 +230,103 @@ function injectPicker() {
   });
 
   syncPicker(readTheme());
+  syncMotifs();
 }
 
 /* Apply before first paint — no flash of the wrong palette. */
 applyTheme(readTheme());
+/* Same for the home page's two switches: patterns and the news ribbon. */
+if (!motifsOn()) document.documentElement.classList.add('motifs-off');
+if (newsDismissed()) document.documentElement.classList.add('news-off');
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', injectPicker);
-} else {
-  injectPicker();
+/* ---------- Home page extras ---------- */
+
+/* Jump-back card: show the last guide that was read (hubs and the home
+   page itself are never recorded — the doors already lead there). */
+function renderJump() {
+  const card = document.getElementById('jumpCard');
+  const name = document.getElementById('jumpName');
+  if (!card || !name) return;
+  try {
+    const raw = localStorage.getItem(SITE_KEY);
+    const st = raw ? JSON.parse(raw) : null;
+    const last = st && typeof st.last === 'string' ? st.last : '';
+    if (last && PAGE_NAMES[last]) {
+      name.textContent = PAGE_NAMES[last];
+      card.href = last;
+      card.hidden = false;
+      return;
+    }
+  } catch (err) { /* no storage, no card */ }
+  card.hidden = true;
 }
 
-/* Another tab changed the shared palette (the timer's Settings →
-   Display, or another site page) — follow it live. */
+function initHome() {
+  if (!document.body.classList.contains('home')) return;
+
+  renderJump();
+
+  /* What's-new ribbon: dismiss remembers the version, so a future
+     message (bump NEWS_VERSION) shows up fresh. */
+  const dismiss = document.getElementById('newsDismiss');
+  if (dismiss) {
+    dismiss.addEventListener('click', () => {
+      try { localStorage.setItem('workCycleTimer.site.news', NEWS_VERSION); } catch (err) {}
+      const ribbon = document.getElementById('newsRibbon');
+      if (ribbon) ribbon.hidden = true;
+      document.documentElement.classList.add('news-off');
+    });
+  }
+
+  /* Easter egg: click the title 5 times (within ~2.5s of each other)
+     and a cat appears beside the shed — same trick as the timer. */
+  const title = document.getElementById('homeTitle');
+  const art = document.getElementById('heroArt');
+  if (title && art) {
+    let clicks = 0;
+    let lastAt = 0;
+    title.addEventListener('click', () => {
+      const now = Date.now();
+      clicks = (now - lastAt > 2500) ? 1 : clicks + 1;
+      lastAt = now;
+      if (clicks >= 5) {
+        art.classList.add('cat-on');
+        clicks = 0;
+      }
+    });
+  }
+}
+
+/* Remember the current guide for the home page's jump-back card.
+   Skips the home page and the two hubs (tools/resources). */
+function recordLastPage() {
+  const file = location.pathname.split('/').pop() || 'index.html';
+  if (!PAGE_NAMES[file]) return;   // home or a hub — nothing to remember
+  try {
+    localStorage.setItem(SITE_KEY, JSON.stringify({ last: file }));
+  } catch (err) { /* private mode */ }
+}
+
+function initPage() {
+  injectPicker();
+  recordLastPage();
+  initHome();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPage);
+} else {
+  initPage();
+}
+
+/* Another tab changed something we share — follow it live:
+   the palette and pattern switch live in the timer's key, the
+   jump-back target in ours. */
 window.addEventListener('storage', (e) => {
-  if (e.key !== STORAGE_KEY) return;
-  applyTheme(readTheme());
+  if (e.key === STORAGE_KEY) {
+    applyTheme(readTheme());
+    syncMotifs();
+  } else if (e.key === SITE_KEY) {
+    renderJump();
+  }
 });
