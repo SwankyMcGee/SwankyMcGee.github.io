@@ -24,9 +24,12 @@
   <div class="tool-picker">
     <label for="toolSelect">Show resources for</label>
     <select id="toolSelect">
-      <option value="timer" selected>Work Cycle Timer</option>
+      <option value="" selected>Select a tool…</option>
+      <option value="timer">Work Cycle Timer</option>
     </select>
   </div>
+
+  <p class="meta" id="pickerHint">Choose a tool above to see its staff resources.</p>
 
   <!-- Work Cycle Timer resources -->
   <section class="tool-group" data-tool="timer">
@@ -80,13 +83,16 @@
 </footer>
 
 <script>
-  // Show only the selected tool's resource cards.
+  // Show only the selected tool's resource cards; start empty.
   const picker = document.getElementById('toolSelect');
+  const hint = document.getElementById('pickerHint');
   const groups = document.querySelectorAll('.tool-group');
   function showSelected() {
+    const chosen = picker.value;
     groups.forEach(function (g) {
-      g.hidden = (g.getAttribute('data-tool') !== picker.value);
+      g.hidden = (g.getAttribute('data-tool') !== chosen);
     });
+    hint.hidden = !!chosen;
   }
   picker.addEventListener('change', showSelected);
   showSelected();
