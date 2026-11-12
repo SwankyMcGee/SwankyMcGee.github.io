@@ -29,6 +29,7 @@ body {
   background: var(--bg);
   color: var(--text);
   line-height: 1.55;
+  transition: background-color .35s ease, color .35s ease;   /* gentle palette switch */
 }
 
 a { color: var(--accent); }
@@ -328,6 +329,267 @@ dd { margin: .15rem 0 0; }
   color: var(--dim);
   font-size: .87rem;
   border-top: 1px solid var(--border);
+}
+
+/* ---------- Shared color palettes (every page + the timer) ----------
+   The same 11 palettes as the Work Cycle Timer's Settings → Display.
+   site.js sets html[data-theme] before first paint and injects the
+   header picker; these values mirror the app's styles.css exactly so
+   moving between the site and the timer never jars.
+   Site var <- app var:  --dim <- --text-dim   --why-* <- surface-2/border
+                         --hold-* <- --warn-*                         */
+
+html[data-theme="calm"] {
+  --bg: #f2f6f8;
+  --surface: #ffffff;
+  --surface-2: #e9eff3;
+  --text: #33414d;
+  --dim: #6b7c8a;
+  --border: #d5dfe6;
+  --accent: #4d84a6;
+  --why-bg: #e9eff3;
+  --why-border: #d5dfe6;
+  --hold-bg: #fdf3dd;
+  --hold-text: #7a5c1e;
+  --hold-border: #eeddb3;
+}
+
+html[data-theme="lavender"] {
+  --bg: #f5f3fb;
+  --surface: #ffffff;
+  --surface-2: #ece8f7;
+  --text: #3d3a52;
+  --dim: #75708f;
+  --border: #ddd7ef;
+  --accent: #7a6fc0;
+  --why-bg: #ece8f7;
+  --why-border: #ddd7ef;
+  --hold-bg: #fdf3dd;
+  --hold-text: #7a5c1e;
+  --hold-border: #eeddb3;
+}
+
+html[data-theme="mint"] {
+  --bg: #eef8f3;
+  --surface: #ffffff;
+  --surface-2: #e0f0e8;
+  --text: #2f4640;
+  --dim: #648076;
+  --border: #cfe6dc;
+  --accent: #35837e;
+  --why-bg: #e0f0e8;
+  --why-border: #cfe6dc;
+  --hold-bg: #fdf3dd;
+  --hold-text: #7a5c1e;
+  --hold-border: #eeddb3;
+}
+
+html[data-theme="peach"] {
+  --bg: #fdf6ef;
+  --surface: #fffdfb;
+  --surface-2: #f9ece0;
+  --text: #4d3f34;
+  --dim: #8a7566;
+  --border: #f0e0d0;
+  --accent: #c26a3c;
+  --why-bg: #f9ece0;
+  --why-border: #f0e0d0;
+  --hold-bg: #fdf3dd;
+  --hold-text: #7a5c1e;
+  --hold-border: #eeddb3;
+}
+
+html[data-theme="rose"] {
+  --bg: #fdf4f6;
+  --surface: #ffffff;
+  --surface-2: #f9e7ec;
+  --text: #4f3540;
+  --dim: #8c6b78;
+  --border: #f2dae1;
+  --accent: #c25f7e;
+  --why-bg: #f9e7ec;
+  --why-border: #f2dae1;
+  --hold-bg: #fdf3dd;
+  --hold-text: #7a5c1e;
+  --hold-border: #eeddb3;
+}
+
+html[data-theme="ocean"] {
+  --bg: #eef8fa;
+  --surface: #ffffff;
+  --surface-2: #dff0f4;
+  --text: #2c4750;
+  --dim: #5f7f89;
+  --border: #cfe6eb;
+  --accent: #2f87a3;
+  --why-bg: #dff0f4;
+  --why-border: #cfe6eb;
+  --hold-bg: #fdf3dd;
+  --hold-text: #7a5c1e;
+  --hold-border: #eeddb3;
+}
+
+html[data-theme="low"] {
+  --bg: #eef1f3;
+  --surface: #f6f8f9;
+  --surface-2: #eaedef;
+  --text: #5b6570;
+  --dim: #838d97;
+  --border: #e2e6e9;
+  --accent: #94b4c3;
+  --why-bg: #eaedef;
+  --why-border: #e2e6e9;
+  --hold-bg: #f4efe3;
+  --hold-text: #8a8172;
+  --hold-border: #e8e0cf;
+}
+
+html[data-theme="high"] {
+  --bg: #000000;
+  --surface: #0b0d10;
+  --surface-2: #16191e;
+  --text: #ffffff;
+  --dim: #d0d6dc;
+  --border: #ffffff;
+  --accent: #56e0ff;
+  --why-bg: #16191e;
+  --why-border: #ffffff;
+  --hold-bg: #2a2105;
+  --hold-text: #ffe066;
+  --hold-border: #ffe066;
+}
+
+html[data-theme="dark"] {
+  --bg: #151a20;
+  --surface: #1e242b;
+  --surface-2: #252c34;
+  --text: #e7edf2;
+  --dim: #9aa7b3;
+  --border: #323b45;
+  --accent: #6fa9c7;
+  --why-bg: #252c34;
+  --why-border: #323b45;
+  --hold-bg: #3a3320;
+  --hold-text: #f0dca6;
+  --hold-border: #5c5030;
+}
+
+html[data-theme="midnight"] {
+  --bg: #0a0f1e;
+  --surface: #121a30;
+  --surface-2: #1a2440;
+  --text: #e3e9f7;
+  --dim: #9aa6c4;
+  --border: #2c3a5e;
+  --accent: #6fa8ff;
+  --why-bg: #1a2440;
+  --why-border: #2c3a5e;
+  --hold-bg: #1c2745;
+  --hold-text: #a9c6f5;
+  --hold-border: #3d5585;
+}
+
+html[data-theme="warm"] {
+  --bg: #211a14;
+  --surface: #2b221a;
+  --surface-2: #352a20;
+  --text: #f0e6da;
+  --dim: #b3a291;
+  --border: #4a3c2e;
+  --accent: #d9a05f;
+  --why-bg: #352a20;
+  --why-border: #4a3c2e;
+  --hold-bg: #3a3020;
+  --hold-text: #f0dca6;
+  --hold-border: #5c4c2e;
+}
+
+/* ---------- Header palette picker (site.js injects this) ---------- */
+
+.theme-wrap {
+  position: relative;
+  margin-left: auto;
+}
+
+.theme-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font: inherit;
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: .3rem .75rem;
+  cursor: pointer;
+}
+
+.theme-btn:hover { border-color: var(--accent); }
+
+.theme-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.theme-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + .45rem);
+  z-index: 30;
+  width: min(21.5rem, calc(100vw - 2rem));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .15);
+  padding: .5rem;
+}
+
+.theme-panel[hidden] { display: none; }
+
+.theme-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .7rem;
+  width: 100%;
+  font: inherit;
+  font-size: .95rem;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: .45rem .6rem;
+  cursor: pointer;
+}
+
+.theme-opt:hover { background: var(--surface-2); }
+
+.theme-opt.active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.theme-opt:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.theme-name { flex: 1; }
+
+.theme-chips {
+  display: inline-flex;
+  gap: 3px;
+  flex: none;
+}
+
+.theme-chip {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
 }
 
 /* ---------- Print (staff like paper) ---------- */
