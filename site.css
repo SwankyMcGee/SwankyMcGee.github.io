@@ -701,38 +701,97 @@ html[data-theme="warm"] {
 
 .hero-art.cat-on .shed-cat { opacity: .92; }
 
-/* ---------- Home: door cards ---------- */
+/* ---------- Home: door cards ----------
+   Three layers: a recess (the destination page's palette-themed mini
+   preview), the door face (whisper-faint plank seams), and an opaque
+   sign nailed over it carrying all the text — so the texture never
+   sits behind words. Hover swings the face open on its left edge
+   (the hinge) to reveal the preview behind it. */
 
 .choose .card.door {
   position: relative;
-  padding: 1.3rem 2.7rem 1.3rem 1.4rem;   /* extra room on the right for the knob */
+  overflow: hidden;                 /* crops the swinging face */
+  padding: 0;
   border: 2px solid var(--border-strong);
   border-radius: 14px 14px 8px 8px;
   background-color: var(--surface);
-  /* faint planks — var(--border) keeps them visible in light and dark palettes */
-  background-image: repeating-linear-gradient(
-    90deg,
-    transparent 0 38px,
-    var(--border) 38px 40px
-  );
-  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+  perspective: 1400px;               /* gives the swing its 3-D feel */
+  transition: border-color .18s ease, box-shadow .18s ease;
 }
 
 .choose .card.door.primary { border-color: var(--accent); }
 
-/* the doorknob */
-.choose .card.door::after {
-  content: '';
+/* — the recess: a peek at the page the door leads to — */
+
+.door-recess {
   position: absolute;
-  right: 16px;
-  top: 50%;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--border-strong);
-  transform: translateY(-50%);
+  inset: 5px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+  box-shadow: inset 0 3px 10px rgba(0, 0, 0, .28);   /* doorway depth */
 }
+
+.door-preview,
+.door-preview svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* — the door face: faint seams, hinges on the left — */
+
+.door-face {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform: rotateY(0deg);
+  transition: transform .45s cubic-bezier(.34, .72, .3, 1);
+  /* plank seams — kept under the sign and rendered at a mere 7% gray
+     so they read as texture, never competing with the text */
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0 46px,
+    rgba(127, 127, 127, .07) 46px 47px,
+    transparent 47px 48px
+  );
+}
+
+.choose .card.door:hover .door-face,
+.choose .card.door:focus-visible .door-face {
+  transform: rotateY(-26deg);       /* swings open from the left edge */
+}
+
+/* — the sign: opaque plate, four nails in the corners — */
+
+.door-sign {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  margin: 9px;                      /* face of the door shows around it */
+  padding: 1.15rem 1.3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: 0 2px 7px rgba(0, 0, 0, .16);
+}
+
+.nail {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, var(--border-strong), var(--dim));
+  box-shadow: 0 1px 1px rgba(0, 0, 0, .3);
+}
+
+.nail-tl { top: 7px; left: 7px; }
+.nail-tr { top: 7px; right: 7px; }
+.nail-bl { bottom: 7px; left: 7px; }
+.nail-br { bottom: 7px; right: 7px; }
 
 .door-icon {
   display: block;
@@ -741,27 +800,24 @@ html[data-theme="warm"] {
 
 .door-icon svg { display: block; }
 
+.door-sign h3 { margin-bottom: .35rem; }
+
+.door-sign p { flex: 1; }
+
 .choose .card.door .go {
   display: inline-block;
   transition: transform .18s ease;
 }
 
-.choose .card.door:hover,
-.choose .card.door:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .08);
-  transform: translateY(-3px) rotate(-.5deg);
-}
-
-.choose .card.door:hover .go { transform: translateX(5px); }
+.choose .card.door:hover .go,
+.choose .card.door:focus-visible .go { transform: translateX(5px); }
 
 @media (prefers-reduced-motion: reduce) {
-  .choose .card.door:hover,
-  .choose .card.door:focus-visible,
-  .choose .card.door:hover .go,
-  .shed-cat { transition: none; transform: none; }
-  .choose .card.door:hover,
-  .choose .card.door:focus-visible { transform: none; }
+  /* no swing — the door snaps open instead, so the preview behind it
+     is still revealed; only the animation is skipped */
+  .door-face,
+  .choose .card.door .go,
+  .shed-cat { transition: none; }
 }
 
 /* ---------- Home: jump-back card ---------- */
