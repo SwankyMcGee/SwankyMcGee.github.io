@@ -10,7 +10,7 @@ The base site — the menu and staff resources for the classroom tools.
 |---|---|
 | `index.html` | Home — a chooser: **Tools** or **Resources** |
 | `tools.html` | Tools hub — cards for each tool (currently: the Work Cycle Timer + The Ideas Engine) |
-| `resources.html` | Resources hub — the staff-resource cards |
+| `resources.html` | Resources hub — dropdown picks the tool, then its resource cards load on the page |
 | `quick-start.html` | Work Cycle Timer quick start (one page) |
 | `user-guide.html` | Work Cycle Timer full user guide |
 | `settings-ref.html` | Work Cycle Timer settings reference |
@@ -29,7 +29,11 @@ Paths on the same domain — the Work Cycle Timer app comes from the
 1. Ship the tool's app in its own repo with its own GitHub Pages path
    (e.g. `/some-tool/`).
 2. Add a card to `tools.html`.
-3. Add its staff resources as pages here and a card to `resources.html`.
+3. Add its staff resources as pages here, then register them on
+   `resources.html`: an `<option>` in the dropdown plus a matching
+   `<section class="tool-group" data-tool="…">` block (there's a comment
+   in the file showing exactly what to copy). The dropdown shows only the
+   selected tool's cards.
 
 ## Publishing
 

@@ -19,45 +19,78 @@
 
 <main>
   <h1>Resources</h1>
-  <p class="meta">Everything staff need to use the timer · App state: November 2026</p>
+  <p class="meta">Pick a tool, then open its staff resources · App state: November 2026</p>
 
-  <div class="cards">
-    <a class="card" href="quick-start.html">
-      <h3>Quick start</h3>
-      <p>One page: open it, set the timers, hold Start, read the dials.</p>
-      <span class="go">Read →</span>
-    </a>
-    <a class="card" href="user-guide.html">
-      <h3>Full user guide</h3>
-      <p>Task-by-task, organised to match the app's own settings tabs.</p>
-      <span class="go">Read →</span>
-    </a>
-    <a class="card" href="settings-ref.html">
-      <h3>Settings reference</h3>
-      <p>Every setting: where it lives, its default, and what it does.</p>
-      <span class="go">Read →</span>
-    </a>
-    <a class="card" href="troubleshooting.html">
-      <h3>Troubleshooting</h3>
-      <p>Tapped and nothing happened? No sound? Settings not remembered?</p>
-      <span class="go">Read →</span>
-    </a>
-    <a class="card" href="scenarios.html">
-      <h3>Scenario walkthroughs</h3>
-      <p>Four ready-made setups — a standard day, three cycles, calm sensory, silent classroom.</p>
-      <span class="go">Read →</span>
-    </a>
-    <a class="card" href="glossary.html">
-      <h3>Glossary</h3>
-      <p>Every term in plain language: pad, cycle, hold to activate, layout…</p>
-      <span class="go">Read →</span>
-    </a>
+  <div class="tool-picker">
+    <label for="toolSelect">Show resources for</label>
+    <select id="toolSelect">
+      <option value="timer" selected>Work Cycle Timer</option>
+    </select>
   </div>
+
+  <!-- Work Cycle Timer resources -->
+  <section class="tool-group" data-tool="timer">
+    <div class="cards">
+      <a class="card" href="quick-start.html">
+        <h3>Quick start</h3>
+        <p>One page: open it, set the timers, hold Start, read the dials.</p>
+        <span class="go">Read →</span>
+      </a>
+      <a class="card" href="user-guide.html">
+        <h3>Full user guide</h3>
+        <p>Task-by-task, organised to match the app's own settings tabs.</p>
+        <span class="go">Read →</span>
+      </a>
+      <a class="card" href="settings-ref.html">
+        <h3>Settings reference</h3>
+        <p>Every setting: where it lives, its default, and what it does.</p>
+        <span class="go">Read →</span>
+      </a>
+      <a class="card" href="troubleshooting.html">
+        <h3>Troubleshooting</h3>
+        <p>Tapped and nothing happened? No sound? Settings not remembered?</p>
+        <span class="go">Read →</span>
+      </a>
+      <a class="card" href="scenarios.html">
+        <h3>Scenario walkthroughs</h3>
+        <p>Four ready-made setups — a standard day, three cycles, calm sensory, silent classroom.</p>
+        <span class="go">Read →</span>
+      </a>
+      <a class="card" href="glossary.html">
+        <h3>Glossary</h3>
+        <p>Every term in plain language: pad, cycle, hold to activate, layout…</p>
+        <span class="go">Read →</span>
+      </a>
+    </div>
+  </section>
+
+  <!--
+    Adding a tool's resources later:
+    1. Add <option value="your-tool">Your Tool</option> to the select above.
+    2. Copy a <section class="tool-group" data-tool="your-tool"> block below
+       and put the tool's resource cards inside it.
+    The script at the bottom matches them up automatically.
+  -->
+
+  <p class="meta">More tools' resources will appear in the dropdown as tools are added.</p>
 </main>
 
 <footer class="site-foot">
-  <a href="index.html">Home</a> · Staff resources for the Work Cycle Timer · App state: November 2026
+  <a href="index.html">Home</a> · Staff resources · App state: November 2026
 </footer>
+
+<script>
+  // Show only the selected tool's resource cards.
+  const picker = document.getElementById('toolSelect');
+  const groups = document.querySelectorAll('.tool-group');
+  function showSelected() {
+    groups.forEach(function (g) {
+      g.hidden = (g.getAttribute('data-tool') !== picker.value);
+    });
+  }
+  picker.addEventListener('change', showSelected);
+  showSelected();
+</script>
 
 </body>
 </html>

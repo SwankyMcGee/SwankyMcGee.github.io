@@ -195,6 +195,32 @@ li { margin: .32rem 0; }
   margin-top: 1rem;
 }
 
+/* ---------- Tool picker (resources page) ---------- */
+
+.tool-picker {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .7rem .9rem;
+  margin: 1rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem .7rem;
+  align-items: center;
+  font-weight: 600;
+}
+
+.tool-picker select {
+  font: inherit;
+  padding: .3rem .5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.tool-group[hidden] { display: none; }
+
 /* ---------- Callouts ---------- */
 
 .hold,
