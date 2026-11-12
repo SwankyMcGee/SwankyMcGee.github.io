@@ -1,6 +1,8 @@
-# swankymcgee.github.io
+# The Learning Toolshed
 
-The base site — the menu and staff resources for the classroom tools.
+**Sensory-friendly tools for autistic classrooms.**
+
+The site behind the collection — the menu and staff resources for every tool.
 
 **Live: `https://swankymcgee.github.io/`**
 
