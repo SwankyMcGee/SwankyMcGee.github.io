@@ -34,9 +34,11 @@ const SITE_KEY = 'workCycleTimer.site.v1';
 /* Version of the "what's new" ribbon — bump it to show a fresh message. */
 const NEWS_VERSION = '2026-11';
 
-/* Friendly names for the jump-back card. Hubs (tools/resources) are
-   never recorded — they're already doors on the home page. */
+/* Friendly names for the jump-back card — every page except the home
+   page itself (the card is the way back into whatever was open). */
 const PAGE_NAMES = {
+  'tools.html': 'Tools',
+  'resources.html': 'Resources',
   'quick-start.html': 'Quick start',
   'user-guide.html': 'User guide',
   'settings-ref.html': 'Settings reference',
@@ -241,8 +243,8 @@ if (newsDismissed()) document.documentElement.classList.add('news-off');
 
 /* ---------- Home page extras ---------- */
 
-/* Jump-back card: show the last guide that was read (hubs and the home
-   page itself are never recorded — the doors already lead there). */
+/* Jump-back card: show the last page that was open (the home page
+   itself is never recorded — you're already there). */
 function renderJump() {
   const card = document.getElementById('jumpCard');
   const name = document.getElementById('jumpName');
@@ -297,11 +299,12 @@ function initHome() {
   }
 }
 
-/* Remember the current guide for the home page's jump-back card.
-   Skips the home page and the two hubs (tools/resources). */
+/* Remember the current page for the home page's jump-back card.
+   Every page counts now — tools and resources included; only the
+   home page itself is skipped. */
 function recordLastPage() {
   const file = location.pathname.split('/').pop() || 'index.html';
-  if (!PAGE_NAMES[file]) return;   // home or a hub — nothing to remember
+  if (!PAGE_NAMES[file]) return;   // the home page (or nothing) — nothing to remember
   try {
     localStorage.setItem(SITE_KEY, JSON.stringify({ last: file }));
   } catch (err) { /* private mode */ }

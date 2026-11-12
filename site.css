@@ -843,10 +843,14 @@ body.home::before {
 
 html.motifs-off body.home::before { display: none; }
 
-/* clouds — calm, peach */
+/* clouds — calm, peach. Each cloud = a flat-ish base ellipse plus
+   bumps of differing sizes; the group's opacity (not fill-opacity)
+   flattens the overlaps first, so there are no seam lines where the
+   circles meet. Four different silhouettes so the tile doesn't read
+   as one shape repeated. */
 html[data-theme="calm"] body.home::before,
 html[data-theme="peach"] body.home::before {
-  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='230' height='230' viewBox='0 0 230 230'><g fill='rgba(70,90,110,0.07)'><ellipse cx='44' cy='42' rx='26' ry='10'/><ellipse cx='62' cy='35' rx='15' ry='8'/><ellipse cx='155' cy='132' rx='30' ry='11'/><ellipse cx='177' cy='125' rx='15' ry='8'/><ellipse cx='95' cy='196' rx='20' ry='8'/></g></svg>");
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='230' height='230' viewBox='0 0 230 230'><g fill='rgb(70,90,110)' opacity='0.075'><ellipse cx='46' cy='52' rx='30' ry='7'/><circle cx='30' cy='44' r='12'/><circle cx='48' cy='37' r='16'/><circle cx='66' cy='45' r='11'/><ellipse cx='163' cy='134' rx='26' ry='7'/><circle cx='152' cy='124' r='14'/><circle cx='169' cy='118' r='17'/><ellipse cx='70' cy='204' rx='22' ry='6'/><circle cx='62' cy='197' r='9'/><circle cx='77' cy='194' r='11'/><ellipse cx='188' cy='186' rx='17' ry='4'/><ellipse cx='204' cy='181' rx='9' ry='3'/></g></svg>");
 }
 
 /* waves — ocean, mint */
