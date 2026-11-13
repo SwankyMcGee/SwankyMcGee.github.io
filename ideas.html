@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Ideas Engine — The Learning Toolshed</title>
+<link rel="stylesheet" href="site.css">
+<script src="site.js"></script>
+</head>
+<body>
+
+<header class="site-head">
+  <a class="brand" href="index.html">The Learning Toolshed</a>
+  <nav class="site-nav" aria-label="Site pages">
+    <a href="index.html">Home</a>
+    <a href="tools.html">Tools</a>
+    <a href="resources.html">Resources</a>
+  </nav>
+</header>
+
+<main>
+  <h1>The Ideas Engine</h1>
+  <p class="meta">One box, no sign-in — every idea gets read.</p>
+
+  <div class="card idea-card">
+    <form class="idea-form" id="ideaForm">
+      <div class="field">
+        <label for="ideaText">What's your idea?</label>
+        <textarea id="ideaText" name="idea" required
+          placeholder="A small change, a new feature, or a whole new tool — a sentence or two is plenty."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="ideaName">Name or email <span class="opt">— only if you'd like a reply</span></label>
+        <input id="ideaName" name="name" type="text" autocomplete="name">
+      </div>
+
+      <!-- spam traps: invisible to people, tempting to bots -->
+      <div class="hp" aria-hidden="true">
+        <label for="ideaHp">Leave this empty</label>
+        <input id="ideaHp" name="hp" type="text" tabindex="-1" autocomplete="off">
+      </div>
+      <input type="hidden" name="page" id="ideaPage">
+      <input type="hidden" name="loadedAt" id="ideaLoaded">
+
+      <button class="idea-submit" id="ideaSubmit" type="submit">Send idea →</button>
+      <p class="idea-fine" id="ideaFine">Saved straight into the Ideas Engine sheet —
+        no account, no sign-in, nothing posted publicly.</p>
+    </form>
+
+    <div class="idea-status" id="ideaStatus" tabindex="-1" hidden>
+      <h3 id="ideaStatusTitle"></h3>
+      <p id="ideaStatusText"></p>
+      <p class="idea-fallback" id="ideaFallback" hidden>
+        Or send it with <a href="https://forms.gle/bjPLDgdWpkLaNFEz5">the original
+        Google Form</a> instead — every response is read either way.</p>
+      <button type="button" class="idea-again" id="ideaAgain" hidden>Send another idea</button>
+    </div>
+  </div>
+
+  <p class="meta">Rather talk it through? Tell whoever looks after the app
+    what you'd like to see — every response is read.</p>
+</main>
+
+<footer class="site-foot">
+  <a href="index.html">Home</a> · Staff resources for the Work Cycle Timer ·
+  Materials dated November 2026
+</footer>
+
+</body>
+</html>

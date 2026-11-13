@@ -34,6 +34,11 @@ const SITE_KEY = 'workCycleTimer.site.v1';
 /* Version of the "what's new" ribbon — bump it to show a fresh message. */
 const NEWS_VERSION = '2026-11';
 
+/* The Ideas Engine backend (a Google Apps Script web app — deploy with
+   ideas-engine/SETUP.md). Empty until it's deployed: ideas.html says so
+   instead of failing silently. */
+const IDEAS_ENDPOINT = '';
+
 /* Friendly names for the jump-back card — every page except the home
    page itself (the card is the way back into whatever was open). */
 const PAGE_NAMES = {
@@ -310,10 +315,88 @@ function recordLastPage() {
   } catch (err) { /* private mode */ }
 }
 
+/* ---------- The Ideas Engine (ideas.html) ----------
+   Posts each idea to the Apps Script web app in IDEAS_ENDPOINT
+   (deploy: ideas-engine/SETUP.md). With no URL yet, the button says
+   so instead of failing silently. The confirmation reuses the
+   original Google Form's "Gulp!" message, word for word. */
+function initIdeas() {
+  const form = document.getElementById('ideaForm');
+  if (!form) return;
+
+  const submit = document.getElementById('ideaSubmit');
+  const status = document.getElementById('ideaStatus');
+  const title = document.getElementById('ideaStatusTitle');
+  const text = document.getElementById('ideaStatusText');
+  const fallback = document.getElementById('ideaFallback');
+  const again = document.getElementById('ideaAgain');
+  const fine = document.getElementById('ideaFine');
+  const pageIn = document.getElementById('ideaPage');
+  const loadIn = document.getElementById('ideaLoaded');
+
+  function stamp() {
+    if (pageIn) pageIn.value = location.pathname;
+    if (loadIn) loadIn.value = String(Date.now());   // bot timing gate
+  }
+  stamp();
+
+  function show(kind, head, body) {
+    form.hidden = true;
+    status.hidden = false;
+    status.className = 'idea-status ' + kind;
+    title.textContent = head;
+    text.textContent = body;
+    fallback.hidden = kind !== 'error';
+    again.hidden = kind !== 'ok';
+    status.focus();
+  }
+
+  if (!IDEAS_ENDPOINT) {
+    submit.disabled = true;
+    if (fine) {
+      fine.textContent = 'Not connected yet — deploy the backend ' +
+        '(ideas-engine/SETUP.md) and paste its URL into IDEAS_ENDPOINT ' +
+        'in site.js.';
+    }
+    return;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    submit.disabled = true;
+    submit.textContent = 'Sending…';
+    try {
+      const res = await fetch(IDEAS_ENDPOINT, {
+        method: 'POST',
+        body: new FormData(form)
+      });
+      const data = await res.json();
+      if (!data || !data.ok) throw new Error('endpoint said no');
+      show('ok', 'Gulp!', 'The Ideas Engine swallowed your idea whole and ' +
+        'looks pleased with itself. It reads every one — thanks for feeding it!');
+    } catch (err) {
+      show('error', 'That idea didn’t send', 'Something got in the way — ' +
+        'try once more, or use the fallback form below. No idea is lost.');
+    } finally {
+      submit.disabled = false;
+      submit.textContent = 'Send idea →';
+    }
+  });
+
+  again.addEventListener('click', () => {
+    status.hidden = true;
+    form.hidden = false;
+    form.reset();
+    stamp();
+    document.getElementById('ideaText').focus();
+  });
+}
+
 function initPage() {
   injectPicker();
   recordLastPage();
   initHome();
+  initIdeas();
 }
 
 if (document.readyState === 'loading') {

@@ -12,6 +12,8 @@ The site behind the collection — the menu and staff resources for every tool.
 |---|---|
 | `index.html` | Home — shed hero, chooser **doors** (Tools / Resources), jump-back card, quick links, what's-new ribbon |
 | `tools.html` | Tools hub — cards for each tool (currently: the Work Cycle Timer + The Ideas Engine) |
+| `ideas.html` | The Ideas Engine — themed suggestion form; posts to a Google Sheet via the Apps Script backend |
+| `ideas-engine/` | Backend for the Ideas Engine — `Code.gs` (the Apps Script) + `SETUP.md` (deploy steps) |
 | `resources.html` | Resources hub — dropdown picks the tool, then its resource cards load on the page |
 | `quick-start.html` | Work Cycle Timer quick start (one page) |
 | `user-guide.html` | Work Cycle Timer full user guide |
