@@ -690,15 +690,12 @@ html[data-theme="warm"] {
   justify-content: center;
 }
 
-/* The logo's wordmark is dark slate, so it rides an always-light
-   plate — readable on every palette, including the dark ones. */
+/* Fully transparent: the logo sits straight on the page's themed
+   background — no plate, no border, no shadow. The wrapper only
+   positions the cat and carries the easter-egg click. */
 .logo-plate {
   position: relative;
-  background: #f7f5f0;
-  border: 1px solid rgba(127, 127, 127, .35);
-  border-radius: 18px;
-  padding: .7rem 1rem .45rem;
-  box-shadow: 0 2px 8px rgba(40, 60, 80, .10);
+  padding: .35rem .7rem .3rem;
 }
 
 .hero-art .hero-logo {
@@ -720,8 +717,8 @@ html[data-theme="warm"] {
 }
 
 /* the cat arrives when someone clicks the logo 5 times — parked in
-   the plate's corner, dark so it reads against the light plate in
-   every palette */
+   the logo's corner, using --text so it follows the palette (it now
+   sits on the page background, not on a plate) */
 .shed-cat {
   position: absolute;
   right: .5rem;

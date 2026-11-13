@@ -10,7 +10,7 @@ The site behind the collection — the menu and staff resources for every tool.
 
 | Page | What it is |
 |---|---|
-| `index.html` | Home — logo hero (`toolshed-logo.png` on a light sign plate), chooser **doors** (Tools / Resources), jump-back card, quick links, what's-new ribbon |
+| `index.html` | Home — logo hero (`toolshed-logo.png`, transparent, straight on the themed background), chooser **doors** (Tools / Resources), jump-back card, quick links, what's-new ribbon |
 | `tools.html` | Tools hub — cards for each tool (currently: the Work Cycle Timer + The Ideas Engine) |
 | `ideas.html` | The Ideas Engine — themed suggestion form; posts to a Google Sheet via the Apps Script backend |
 | `ideas-engine/` | Backend for the Ideas Engine — `Code.gs` (the Apps Script) + `SETUP.md` (deploy steps) |
@@ -23,7 +23,7 @@ The site behind the collection — the menu and staff resources for every tool.
 | `glossary.html` | Work Cycle Timer glossary |
 | `site.css` | Shared styling + print styles for every page |
 | `site.js` | Shared color palette — applies the remembered theme before first paint, injects the 🎨 Palette header button on every page, and holds `TOOLS` (the list behind the Ideas Engine's tool dropdown) |
-| `toolshed-logo.png` | The home hero logo — cartoon shed + wordmark (600×335, transparent) |
+| `toolshed-logo.png` | The home hero logo — cartoon shed + wordmark (600×335, transparent background) |
 
 The tools themselves live in **their own repos** and are served from their own
 Paths on the same domain — the Work Cycle Timer app comes from the
