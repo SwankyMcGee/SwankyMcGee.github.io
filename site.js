@@ -291,14 +291,16 @@ function initHome() {
     });
   }
 
-  /* Easter egg: click the title 5 times (within ~2.5s of each other)
-     and a cat appears beside the shed — same trick as the timer. */
-  const title = document.getElementById('homeTitle');
+  /* Easter egg: click the logo 5 times (within ~2.5s of each other)
+     and a cat appears on the sign — same trick as the timer. The
+     heading is visually hidden now (the logo carries the words), so
+     the target is the sign plate the logo rides on. */
+  const plate = document.getElementById('logoPlate');
   const art = document.getElementById('heroArt');
-  if (title && art) {
+  if (plate && art) {
     let clicks = 0;
     let lastAt = 0;
-    title.addEventListener('click', () => {
+    plate.addEventListener('click', () => {
       const now = Date.now();
       clicks = (now - lastAt > 2500) ? 1 : clicks + 1;
       lastAt = now;

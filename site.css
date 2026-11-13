@@ -660,18 +660,29 @@ html[data-theme="warm"] {
 
 .news-dismiss:hover { border-color: var(--accent); color: var(--text); }
 
-/* ---------- Home: hero (shed + title) ---------- */
+/* ---------- Home: hero (logo + tagline) ---------- */
 
 .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: .3rem 1.6rem;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  text-align: center;
+  gap: .3rem;
   margin: .7rem 0 .3rem;
 }
 
-@media (min-width: 760px) {
-  .hero { grid-template-columns: minmax(170px, 230px) minmax(0, 1fr); }
+/* for text that must stay in the DOM (headings, labels) but is
+   spoken, not seen — used when an image already carries the words */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .hero-art {
@@ -679,13 +690,25 @@ html[data-theme="warm"] {
   justify-content: center;
 }
 
-.hero-art .shed-svg {
-  width: min(230px, 62vw);
+/* The logo's wordmark is dark slate, so it rides an always-light
+   plate — readable on every palette, including the dark ones. */
+.logo-plate {
+  position: relative;
+  background: #f7f5f0;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 18px;
+  padding: .7rem 1rem .45rem;
+  box-shadow: 0 2px 8px rgba(40, 60, 80, .10);
+}
+
+.hero-art .hero-logo {
+  display: block;
+  width: min(420px, 84vw);
   height: auto;
 }
 
 .hero-tagline {
-  margin: 0 0 .25rem;
+  margin: .45rem 0 .25rem;
   font-size: 1.05rem;
   font-weight: 600;
   color: var(--text);
@@ -696,8 +719,19 @@ html[data-theme="warm"] {
   color: var(--dim);
 }
 
-/* the cat arrives when someone clicks the title 5 times */
-.shed-cat { transition: opacity .7s ease; }
+/* the cat arrives when someone clicks the logo 5 times — parked in
+   the plate's corner, dark so it reads against the light plate in
+   every palette */
+.shed-cat {
+  position: absolute;
+  right: .5rem;
+  bottom: .3rem;
+  width: 34px;
+  height: auto;
+  opacity: 0;
+  transition: opacity .7s ease;
+  pointer-events: none;
+}
 
 .hero-art.cat-on .shed-cat { opacity: .92; }
 
