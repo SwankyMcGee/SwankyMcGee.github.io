@@ -710,11 +710,13 @@ html[data-theme="warm"] {
 
 .choose .card.door {
   position: relative;
+  display: flex;                    /* the face is in flow — it gives the card height */
   overflow: hidden;                 /* crops the swinging face */
   padding: 0;
+  min-height: 190px;                /* the door has body even with short text */
   border: 2px solid var(--border-strong);
   border-radius: 14px 14px 8px 8px;
-  background-color: var(--surface);
+  background-color: var(--surface-2);   /* the door itself, visible around the sign */
   perspective: 1400px;               /* gives the swing its 3-D feel */
   transition: border-color .18s ease, box-shadow .18s ease;
 }
@@ -742,13 +744,17 @@ html[data-theme="warm"] {
 /* — the door face: faint seams, hinges on the left — */
 
 .door-face {
-  position: absolute;
-  inset: 0;
-  transform-origin: left center;
+  position: relative;               /* in flow — this is what gives the card its height */
+  z-index: 1;                       /* over the recess: hides the preview until open */
+  flex: 1;
+  min-height: 190px;
+  display: flex;
+  transform-origin: right center;   /* the hinge is on the right */
   transform: rotateY(0deg);
   transition: transform .45s cubic-bezier(.34, .72, .3, 1);
-  /* plank seams — kept under the sign and rendered at a mere 7% gray
-     so they read as texture, never competing with the text */
+  background-color: var(--surface-2);   /* the door, around the sign */
+  /* whisper-faint plank seams — they only show in the frame around the
+     sign now, so they never compete with the text */
   background-image: repeating-linear-gradient(
     90deg,
     transparent 0 46px,
@@ -759,17 +765,18 @@ html[data-theme="warm"] {
 
 .choose .card.door:hover .door-face,
 .choose .card.door:focus-visible .door-face {
-  transform: rotateY(-26deg);       /* swings open from the left edge */
+  transform: rotateY(-34deg);       /* swings away from you on its right hinge —
+                                       the preview strip appears on the left */
 }
 
 /* — the sign: opaque plate, four nails in the corners — */
 
 .door-sign {
   position: relative;
-  height: 100%;
+  flex: 1;                          /* fills the face minus its margins */
   box-sizing: border-box;
-  margin: 9px;                      /* face of the door shows around it */
-  padding: 1.15rem 1.3rem;
+  margin: 18px 26px;                /* the door shows all around the sign */
+  padding: .9rem 1.05rem;           /* tightened — the sign hugs its text */
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -795,17 +802,18 @@ html[data-theme="warm"] {
 
 .door-icon {
   display: block;
-  margin-bottom: .55rem;
+  margin-bottom: .45rem;
 }
 
 .door-icon svg { display: block; }
 
-.door-sign h3 { margin-bottom: .35rem; }
+.choose .card.door .door-sign h3 { margin: 0 0 .3rem; }
 
 .door-sign p { flex: 1; }
 
 .choose .card.door .go {
   display: inline-block;
+  margin-top: .6rem;                /* was 1rem — the sign is tighter now */
   transition: transform .18s ease;
 }
 
