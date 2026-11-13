@@ -41,9 +41,11 @@ and ship it.
 
 ## 5. Test
 
-1. Open `https://swankymcgee.github.io/ideas.html`, type a test idea, **Send idea →**
-   → the "Gulp!" confirmation appears, and a row shows up in the sheet's
-   **Ideas** tab with timestamp, idea, name, and page.
+1. Open `https://swankymcgee.github.io/ideas.html`, pick **A new feature
+   for an existing tool**, choose a tool, type a test idea,
+   **Send idea →** → the "Gulp!" confirmation appears, and a row shows
+   up in the sheet's **Ideas** tab with type, timestamp, idea, name,
+   and the tool.
 2. Visit the `/exec` URL directly → `{"ok":true,"service":"The Ideas Engine"}`.
 
 ## Notes
@@ -53,4 +55,11 @@ and ship it.
   typing never trips them.
 - The old Google Form stays up as the in-page **error fallback** only;
   its responses remain readable in its own spreadsheet.
-- Rows: `When | Idea | Name or email | Page`.
+- Rows: `Type | When | Idea | Name or email | Which tool`. `Type` is
+  `Tool` or `Feature`; `Which tool` is filled for feature ideas only.
+  An older header (the pre-Type layout) is rewritten to this shape
+  automatically on the next submission — clear any rows it leaves
+  misaligned beneath it.
+- The dropdown lists whatever is in `TOOLS` at the top of `site.js`
+  (the site's tool registry — new tools go there; see README →
+  Adding a tool).

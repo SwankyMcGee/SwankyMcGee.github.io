@@ -53,6 +53,11 @@ const PAGE_NAMES = {
   'glossary.html': 'Glossary'
 };
 
+/* The tools on the Tools hub — the single list the Ideas Engine's
+   "Which tool is it for?" dropdown is built from, so a new tool
+   appears there the moment it's added here (README → Adding a tool). */
+const TOOLS = ['Work Cycle Timer'];
+
 /* Read the shared setting. Never trust it: unknown ids fall back to
    calm, exactly like the timer validates on load. */
 function readTheme() {
@@ -332,14 +337,36 @@ function initIdeas() {
   const fallback = document.getElementById('ideaFallback');
   const again = document.getElementById('ideaAgain');
   const fine = document.getElementById('ideaFine');
-  const pageIn = document.getElementById('ideaPage');
   const loadIn = document.getElementById('ideaLoaded');
+  const typeRadios = form.querySelectorAll('input[name="type"]');
+  const toolField = document.getElementById('toolField');
+  const toolSelect = document.getElementById('ideaTool');
 
   function stamp() {
-    if (pageIn) pageIn.value = location.pathname;
     if (loadIn) loadIn.value = String(Date.now());   // bot timing gate
   }
   stamp();
+
+  /* The dropdown is built from TOOLS — one place to add when a new
+     tool ships; the placeholder stays exactly as written in the HTML. */
+  TOOLS.forEach((name) => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    toolSelect.appendChild(opt);
+  });
+
+  /* "Which tool is it for?" appears only for feature ideas. A hidden
+     required select would block sending, so required follows
+     visibility, and switching back clears any stale pick. */
+  typeRadios.forEach((radio) => {
+    radio.addEventListener('change', () => {
+      const feature = radio.checked && radio.value === 'feature';
+      toolField.hidden = !feature;
+      toolSelect.required = feature;
+      if (!feature) toolSelect.value = '';
+    });
+  });
 
   function show(kind, head, body) {
     form.hidden = true;

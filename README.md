@@ -22,7 +22,7 @@ The site behind the collection — the menu and staff resources for every tool.
 | `scenarios.html` | Work Cycle Timer scenario walkthroughs |
 | `glossary.html` | Work Cycle Timer glossary |
 | `site.css` | Shared styling + print styles for every page |
-| `site.js` | Shared color palette — applies the remembered theme before first paint and injects the 🎨 Palette header button on every page |
+| `site.js` | Shared color palette — applies the remembered theme before first paint, injects the 🎨 Palette header button on every page, and holds `TOOLS` (the list behind the Ideas Engine's tool dropdown) |
 
 The tools themselves live in **their own repos** and are served from their own
 Paths on the same domain — the Work Cycle Timer app comes from the
@@ -33,7 +33,9 @@ Paths on the same domain — the Work Cycle Timer app comes from the
 
 1. Ship the tool's app in its own repo with its own GitHub Pages path
    (e.g. `/some-tool/`).
-2. Add a card to `tools.html`.
+2. Add a card to `tools.html`, and add the tool's name to `TOOLS` in
+   `site.js` — the Ideas Engine's "Which tool is it for?" dropdown is
+   built from that list, so it picks the tool up by itself.
 3. Add its staff resources as pages here, then register them on
    `resources.html`: an `<option>` in the dropdown plus a matching
    `<section class="tool-group" data-tool="…">` block (there's a comment

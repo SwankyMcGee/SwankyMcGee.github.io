@@ -20,14 +20,30 @@
 
 <main>
   <h1>The Ideas Engine</h1>
-  <p class="meta">One box, no sign-in — every idea gets read.</p>
+  <p class="meta">A couple of quick questions, no sign-in — every idea gets read.</p>
 
   <div class="card idea-card">
     <form class="idea-form" id="ideaForm">
+      <fieldset class="radio-set">
+        <legend>Is this a new tool idea or a new feature idea?</legend>
+        <label class="radio"><input type="radio" name="type" value="tool" required>
+          A new tool</label>
+        <label class="radio"><input type="radio" name="type" value="feature">
+          A new feature for an existing tool</label>
+      </fieldset>
+
+      <div class="field" id="toolField" hidden>
+        <label for="ideaTool">Which tool is it for?</label>
+        <select id="ideaTool" name="tool">
+          <option value="" selected>-Select A Tool-</option>
+          <!-- more options are added from TOOLS in site.js -->
+        </select>
+      </div>
+
       <div class="field">
         <label for="ideaText">What's your idea?</label>
         <textarea id="ideaText" name="idea" required
-          placeholder="A small change, a new feature, or a whole new tool — a sentence or two is plenty."></textarea>
+          placeholder="A sentence or two is plenty — what should it do, or what should change?"></textarea>
       </div>
 
       <div class="field">
@@ -40,7 +56,6 @@
         <label for="ideaHp">Leave this empty</label>
         <input id="ideaHp" name="hp" type="text" tabindex="-1" autocomplete="off">
       </div>
-      <input type="hidden" name="page" id="ideaPage">
       <input type="hidden" name="loadedAt" id="ideaLoaded">
 
       <button class="idea-submit" id="ideaSubmit" type="submit">Send idea →</button>
@@ -63,7 +78,7 @@
 </main>
 
 <footer class="site-foot">
-  <a href="index.html">Home</a> · Staff resources for the Work Cycle Timer ·
+  <a href="index.html">Home</a> · Staff resources for The Learning Toolshed ·
   Materials dated November 2026
 </footer>
 

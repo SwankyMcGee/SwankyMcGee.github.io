@@ -7,6 +7,10 @@
 
 const SHEET_NAME = 'Ideas';
 const MIN_MILLISECONDS = 3000;   // faster than this is a bot, not a teacher
+/* Column order: whether it's a tool or feature idea, when it arrived,
+   the idea itself, who sent it, and — for feature ideas — which tool
+   it is for (replaced the old "Page" column). */
+const HEADER = ['Type', 'When', 'Idea', 'Name or email', 'Which tool'];
 
 function doPost(e) {
   const data = (e && e.parameter) || {};
@@ -23,23 +27,41 @@ function doPost(e) {
     const loadedAt = parseInt(data.loadedAt, 10);
     if (loadedAt && Date.now() - loadedAt < MIN_MILLISECONDS) return ok();
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    let sheet = ss.getSheetByName(SHEET_NAME);
-    if (!sheet) {
-      sheet = ss.insertSheet(SHEET_NAME);
-      sheet.appendRow(['When', 'Idea', 'Name or email', 'Page']);
-      sheet.setFrozenRows(1);
-    }
+    /* First question: new tool or a feature for an existing one.
+       Feature ideas must name their tool (the form enforces it too —
+       a miss here means a broken client, so we say no). */
+    const type = data.type === 'tool' ? 'Tool'
+      : data.type === 'feature' ? 'Feature' : '';
+    if (!type) return fail();
+    const tool = type === 'Feature' ? String(data.tool || '').trim() : '';
+    if (type === 'Feature' && !tool) return fail();
+
+    const sheet = ensureSheet_();
     sheet.appendRow([
+      type,
       new Date(),
       idea,
       String(data.name || '').trim(),
-      String(data.page || '').trim()
+      tool
     ]);
     return ok();
   } catch (err) {
     return fail();
   }
+}
+
+/* Create the sheet with its header, or migrate the pre-Type layout
+   (When | Idea | Name | Page) to the current five columns — old rows
+   below the new header are the user's to clear. */
+function ensureSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+  if (String(sheet.getRange('A1').getValue()) !== 'Type') {
+    sheet.getRange('A1:E1').setValues([HEADER]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
 }
 
 /* A plain visit to the deployed URL answers with this — our
