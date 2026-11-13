@@ -37,7 +37,8 @@ const NEWS_VERSION = '2026-11';
 /* The Ideas Engine backend (a Google Apps Script web app — deploy with
    ideas-engine/SETUP.md). Empty until it's deployed: ideas.html says so
    instead of failing silently. */
-const IDEAS_ENDPOINT = '';
+const IDEAS_ENDPOINT =
+  'https://script.google.com/macros/s/AKfycbzZG7bLh8EQTsnZN8pfkHiry_gQMT2PFggl7M4Ku1RAUjDgpHDGczpla_dsEXhmIA4jDw/exec';
 
 /* Friendly names for the jump-back card — every page except the home
    page itself (the card is the way back into whatever was open). */
