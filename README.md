@@ -27,9 +27,15 @@ The site behind the collection — the menu and staff resources for every tool.
 | `toolshed-logo-light.png` | Light-wordmark twin of the logo, swapped in by `site.css` on the dark palettes (same art, same transparency) |
 
 The tools themselves live in **their own repos** and are served from their own
-Paths on the same domain — the Work Cycle Timer app comes from the
-`work-cycle-timer` repo at
-`https://swankymcgee.github.io/work-cycle-timer/timer.html`.
+Paths on the same domain:
+
+- Work Cycle Timer — `work-cycle-timer` repo at
+  `https://swankymcgee.github.io/work-cycle-timer/timer.html`
+- Math Playground — `math-playground` repo at
+  `https://swankymcgee.github.io/math-playground/`
+
+Both read and write the same `localStorage` keys as this site, so the palette
+picked here shows up in the tools and vice versa.
 
 ## Adding a tool
 

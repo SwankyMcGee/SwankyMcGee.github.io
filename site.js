@@ -56,7 +56,7 @@ const PAGE_NAMES = {
 /* The tools on the Tools hub — the single list the Ideas Engine's
    "Which tool is it for?" dropdown is built from, so a new tool
    appears there the moment it's added here (README → Adding a tool). */
-const TOOLS = ['Work Cycle Timer'];
+const TOOLS = ['Work Cycle Timer', 'Math Playground'];
 
 /* Read the shared setting. Never trust it: unknown ids fall back to
    calm, exactly like the timer validates on load. */
