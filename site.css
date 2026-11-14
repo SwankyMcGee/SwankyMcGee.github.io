@@ -704,6 +704,17 @@ html[data-theme="warm"] {
   height: auto;
 }
 
+/* The wordmark in the PNG is dark slate — unreadable on the dark
+   palettes, so those swap in a light-wordmark twin (same art, same
+   transparency, generated from the same file). If you add a DARK
+   palette to THEMES, add its selector here too. */
+[data-theme="high"] .hero-logo,
+[data-theme="dark"] .hero-logo,
+[data-theme="midnight"] .hero-logo,
+[data-theme="warm"] .hero-logo {
+  content: url("toolshed-logo-light.png");
+}
+
 .hero-tagline {
   margin: .45rem 0 .25rem;
   font-size: 1.05rem;

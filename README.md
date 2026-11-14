@@ -24,6 +24,7 @@ The site behind the collection — the menu and staff resources for every tool.
 | `site.css` | Shared styling + print styles for every page |
 | `site.js` | Shared color palette — applies the remembered theme before first paint, injects the 🎨 Palette header button on every page, and holds `TOOLS` (the list behind the Ideas Engine's tool dropdown) |
 | `toolshed-logo.png` | The home hero logo — cartoon shed + wordmark (600×335, transparent background) |
+| `toolshed-logo-light.png` | Light-wordmark twin of the logo, swapped in by `site.css` on the dark palettes (same art, same transparency) |
 
 The tools themselves live in **their own repos** and are served from their own
 Paths on the same domain — the Work Cycle Timer app comes from the
@@ -50,7 +51,10 @@ Paths on the same domain — the Work Cycle Timer app comes from the
    own theme UI should read and write that same field (patching one field
    of the parsed JSON, never overwriting the rest) so every page and tool
    stays in step. Keep `THEMES` in `site.js` identical to the app's
-   `THEMES` in its `app.js`.
+   `THEMES` in its `app.js`. If you add a **dark** palette, also add
+   its selector to the logo-swap rule in `site.css` (the hero
+   wordmark is dark slate — dark palettes get
+   `toolshed-logo-light.png`).
 
 ## Publishing
 
