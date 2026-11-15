@@ -46,7 +46,7 @@ and ship it.
    **Send idea →** → the "Gulp!" confirmation appears, and a row shows
    up in the sheet's **Ideas** tab with type, timestamp, idea, name,
    and the tool.
-2. Visit the `/exec` URL directly → `{"ok":true,"service":"The Ideas Engine"}`.
+2. Visit the `/exec` URL directly → `{"ok":true,"service":"The Ideas Engine","api":3}`.
 
 ## Notes
 
@@ -55,8 +55,11 @@ and ship it.
   typing never trips them.
 - The old Google Form stays up as the in-page **error fallback** only;
   its responses remain readable in its own spreadsheet.
-- Rows: `Type | When | Idea | Name or email | Which tool`. `Type` is
-  `Tool` or `Feature`; `Which tool` is filled for feature ideas only.
+- Rows: `Type | When | Idea | Name or email | Which tool | Read | Status |
+  Note`. `Type` is `Tool` or `Feature`; `Which tool` is filled for feature
+  ideas only. `Read`, `Status` and `Note` belong to the Toolshed Admin
+  app — key setup, endpoints and the anonymous page-view sheet are in
+  `ADMIN.md` next to this file.
   An older header (the pre-Type layout) is rewritten to this shape
   automatically on the next submission — clear any rows it leaves
   misaligned beneath it.

@@ -422,11 +422,66 @@ function initIdeas() {
   });
 }
 
+/* ---------------- Anonymous usage ping ----------------
+   No cookies, no personal data: only the page, how long it was open,
+   and the referring page. Nothing is sent on load itself — the clock
+   starts here, then a beacon fires when the tab hides, when the page
+   leaves, or once at 30 seconds of visible time (so a crash doesn't
+   swallow the whole visit). Every report carries the session's
+   elapsed seconds at that moment, capped at an hour — an idle tab
+   is not a reader. Backend: ideas-engine/Code.gs (action=track). */
+function trackPageView() {
+  if (!IDEAS_ENDPOINT) return;
+  /* file:// (opened by double-click) has no page worth counting —
+     http(s) pages only. */
+  if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
+
+  const started = Date.now();
+  let lastSent = -1;
+
+  const send = () => {
+    const seconds = Math.min(3600, Math.max(0,
+      Math.round((Date.now() - started) / 1000)));
+    /* Hiding and leaving can land in the same second — one report,
+       not two. */
+    if (seconds === lastSent) return;
+    lastSent = seconds;
+    const body = 'action=track' +
+      '&path=' + encodeURIComponent(location.pathname) +
+      '&seconds=' + seconds +
+      '&referrer=' + encodeURIComponent(document.referrer || '');
+    try {
+      const blob = new Blob([body],
+        { type: 'application/x-www-form-urlencoded' });
+      if (navigator.sendBeacon && navigator.sendBeacon(IDEAS_ENDPOINT, blob)) {
+        return;
+      }
+      fetch(IDEAS_ENDPOINT, {
+        method: 'POST',
+        body: body,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        keepalive: true
+      }).catch(() => {});
+    } catch (err) { /* fire and forget — never interrupts the page */ }
+  };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') send();
+  });
+  window.addEventListener('beforeunload', send);
+
+  /* One mid-point report at 30 seconds of visible time. */
+  setTimeout(() => {
+    if (document.visibilityState === 'visible') send();
+  }, 30000);
+}
+
 function initPage() {
   injectPicker();
   recordLastPage();
   initHome();
   initIdeas();
+  trackPageView();
 }
 
 if (document.readyState === 'loading') {
