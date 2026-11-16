@@ -4,28 +4,34 @@
    in the "Ideas" sheet of the spreadsheet this script is bound
    to. Deploy steps: ideas-engine/SETUP.md (site repo).
 
-   Two surfaces, both behind the same /exec URL:
+    Two surfaces, both behind the same /exec URL:
 
-   PUBLIC  doPost               — ideas.html posts here, no key
-   ADMIN   doGet / doPost       — the Toolshed Admin app, needs
-           key=<ADMIN_KEY>; see ADMIN_KEY below and
-           ideas-engine/ADMIN.md.
+    PUBLIC  doPost               — ideas.html posts here, no key
+    ADMIN   doPost               — the Toolshed Admin app, needs
+            key=<ADMIN_KEY>; see ADMIN_KEY below and
+            ideas-engine/ADMIN.md.
 
-Admin actions (need the key):
-      GET  ?key=…&action=state        -> { ok, admin: true, api, minSupportedVersionCode }
-      GET  ?key=…&action=ideas        -> { ok, ideas: [ … ] }
-      GET  ?key=…&action=changes&since= -> { ok, ideas: [ … ], serverTime }
-      GET  ?key=…&action=replies&id=  -> { ok, replies: [ … ] }
-      GET  ?key=…&action=pageviews    -> { ok, rows: [ … ] }        (days=)
-      GET  ?key=…&action=usage&days=  -> { ok, source, tools, resources, pages, unmapped, perDay }
-      GET  ?key=…&action=manifest     -> { ok, manifest }           (the site's registry)
-      POST ?key=…&action=read         -> { ok }   ids: 1,2,3
-      POST ?key=…&action=status       -> { ok }   id, status, note
-      POST ?key=…&action=reply        -> { ok }   id, body
+    Admin traffic is POST-only, and the key travels in the body. A key in
+    a query string is a key in browser history, in proxy logs, and in the
+    Referer header of every URL it touches — so v5 refuses GET on admin
+    actions outright. See doGet.
+
+    Admin actions (POST, form-encoded: key, action, then fields):
+          action=state                  -> { ok, admin, api, minSupportedVersionCode }
+          action=ideas                  -> { ok, ideas: [ … ] }
+          action=changes   since=       -> { ok, ideas: [ … ], serverTime }
+          action=replies   id=          -> { ok, replies: [ … ] }
+          action=pageviews days=        -> { ok, rows: [ … ] }
+          action=usage     days=        -> { ok, source, tools, resources, pages, unmapped, perDay }
+          action=manifest               -> { ok, manifest }   (the site's registry)
+          action=read      ids=1,2,3    -> { ok, changed }
+          action=status    id, status, note -> { ok }
+          action=reply     id, body     -> { ok, reply }
 
     Public (no key):
       POST action=track               -> { ok }   path, seconds, referrer
       — the site's anonymous usage ping; see ADMIN.md.
+      Anything else POSTed without a key is ideas.html submitting an idea.
     ============================================================ */
 
 const SHEET_NAME = 'Ideas';
@@ -33,7 +39,8 @@ const REPLIES_SHEET = 'Replies';
 const VIEWS_SHEET = 'PageViews';
 const ROLLUP_SHEET = 'DailyRollup';
 const MIN_MILLISECONDS = 3000;   // faster than this is a bot, not a teacher
-const API_VERSION = 4;
+/* API level. 5 = admin traffic is POST-only (v4 was GET for reads). */
+const API_VERSION = 5;
 
 /* The site's registry — every tool, page and resource page. Served to
    the admin app (action=manifest) so a new tool on the site reaches the
@@ -74,17 +81,32 @@ const COL = {
 
 const STATUS_VALUES = ['new', 'reading', 'planned', 'done', 'shelved'];
 
-/* The admin shared secret. Set this to a long random string and keep it
-   out of the site repo — it only ever travels between the app and this
-   script. Empty = admin API refuses every call (safe default). */
+/* The admin shared secret, from Script Properties.
+
+   Set it once, from the Apps Script editor:
+     Project Settings → Script Properties → Add property
+       ADMIN_KEY = <a long random string>
+
+   The property wins; the constant below is only a fallback for a
+   deployment that still has the key written into the file. Prefer the
+   property: a key in source is a key that gets pasted into a repo, and
+   this script's file already lives in one. Rotating then means editing a
+   property, not code.
+
+   Empty in both places = admin API refuses every call (safe default). */
 const ADMIN_KEY = '';
+
+function adminKey_() {
+  const fromProps = PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');
+  return String(fromProps || ADMIN_KEY || '').trim();
+}
 
 /* One public POST door. A key means it's an admin call (the Toolshed
    Admin app); anything else is ideas.html submitting an idea. */
 function doPost(e) {
   const data = (e && e.parameter) || {};
   try {
-    if (data.key) return doPostAdmin_(data);
+    if (data.key) return admin_(data);
     if (data.action === 'track') return trackPageView_(data);
     return submitIdea_(data);
   } catch (err) {
@@ -130,22 +152,20 @@ function submitIdea_(data) {
   return ok();
 }
 
-/* ---------------- Admin: read the inbox ---------------- */
+/* ---------------- Admin: one door, POST only ---------------- */
 
-function doGet(e) {
-  const p = (e && e.parameter) || {};
+/* Reads moved behind POST in v5, so every admin action goes through
+   here. One dispatcher means one place to check the key and one place
+   to add an action — two doors (a GET path and a POST path) is how a
+   key ends up in a query string by accident.
 
-  /* A plain visit answers with this — our smoke test that the
-     endpoint is live (no key, no data). */
-  if (!p.action) {
-    return ContentService.createTextOutput(
-      JSON.stringify({ ok: true, service: 'The Ideas Engine', api: API_VERSION })
-    ).setMimeType(ContentService.MimeType.JSON);
-  }
+   Returns 200 + { ok: false } for everything it refuses, so a caller
+   cannot tell "wrong key" from "unknown action" from "bad id" by
+   status code. */
+function admin_(data) {
+  if (!isAdmin_(data.key)) return deny();
 
-  if (!isAdmin_(p.key)) return deny();
-
-  const action = p.action;
+  const action = data.action;
   if (action === 'state') {
     return json_({
       ok: true,
@@ -157,16 +177,16 @@ function doGet(e) {
   }
   if (action === 'ideas') return json_({ ok: true, ideas: listIdeas_() });
   if (action === 'changes') {
-    const since = Number(p.since) || 0;
+    const since = Number(data.since) || 0;
     return json_(changes_(since));
   }
   if (action === 'replies') {
-    const id = parseInt(p.id, 10);
+    const id = parseInt(data.id, 10);
     if (!(id >= 2)) return json_({ ok: false, error: 'bad id' });
     return json_({ ok: true, replies: listReplies_(id) });
   }
-  if (action === 'pageviews') return json_({ ok: true, rows: pageViews_(daysParam_(p.days)) });
-  if (action === 'usage') return usage_(daysParam_(p.days));
+  if (action === 'pageviews') return json_({ ok: true, rows: pageViews_(daysParam_(data.days)) });
+  if (action === 'usage') return usage_(daysParam_(data.days));
   if (action === 'manifest') {
     const manifest = loadManifest_();
     /* No manifest (offline, or GitHub Pages down): say so plainly and
@@ -174,8 +194,47 @@ function doGet(e) {
     if (!manifest) return json_({ ok: false, error: 'manifest unavailable' });
     return json_({ ok: true, manifest: manifest });
   }
+  if (action === 'read') {
+    const ids = String(data.ids || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!ids.length) return json_({ ok: false, error: 'no ids' });
+    return json_({ ok: true, changed: markRead_(ids) });
+  }
+  if (action === 'status') {
+    const okWrite = setStatus_(data.id, data.status, data.note);
+    return json_(okWrite ? { ok: true } : { ok: false, error: 'bad id' });
+  }
+  if (action === 'reply') {
+    const id = parseInt(data.id, 10);
+    const body = String(data.body || '').trim();
+    if (!(id >= 2) || !body) return json_({ ok: false, error: 'bad request' });
+    return json_({ ok: true, reply: addReply_(id, body) });
+  }
 
   return json_({ ok: false, error: 'unknown action' });
+}
+
+/* A GET answers one thing: that the service is alive. Anything else over
+   GET is refused by name.
+
+   Admin reads used to be GET in v4, which put the key in the query
+   string — browser history, proxy logs, the Referer header of anything
+   that URL touched. The app has been POST-only since v1.9; this is the
+   other half. An old app that still GETs gets a plain answer instead of
+   'forbidden', which is what makes the failure obvious during an
+   upgrade. */
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+
+  /* A plain visit — our smoke test that the endpoint is live
+     (no key, no data). */
+  if (!p.action && !p.key) {
+    return json_({ ok: true, service: 'The Ideas Engine', api: API_VERSION });
+  }
+
+  return json_({ ok: false, error: 'admin actions must use POST' });
 }
 
 /* ?days=30 → 30, clamped to 1…365. Missing or nonsense means 90 —
@@ -787,39 +846,22 @@ function toDate_(value) {
   return null;
 }
 
-/* Admin posts: form-encoded (key + action + fields), same as the
-   public one, so the app can use one request style for everything. */
-function doPostAdmin_(data) {
-  if (!isAdmin_(data.key)) return deny();
-
-  if (data.action === 'read') {
-    const ids = String(data.ids || '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (!ids.length) return json_({ ok: false, error: 'no ids' });
-    return json_({ ok: true, changed: markRead_(ids) });
-  }
-
-  if (data.action === 'status') {
-    const okWrite = setStatus_(data.id, data.status, data.note);
-    return json_(okWrite ? { ok: true } : { ok: false, error: 'bad id' });
-  }
-
-  if (data.action === 'reply') {
-    const id = parseInt(data.id, 10);
-    const body = String(data.body || '').trim();
-    if (!(id >= 2) || !body) return json_({ ok: false, error: 'bad request' });
-    return json_({ ok: true, reply: addReply_(id, body) });
-  }
-
-  return json_({ ok: false, error: 'unknown action' });
-}
-
 /* ---------------- Small helpers ---------------- */
 
+/* Compared without early exit. It makes no practical difference against
+   a network — an attacker cannot time an Apps Script call that precisely
+   — but a secret check that returns as soon as two characters differ is
+   a bad habit to leave in a file about secrets. */
 function isAdmin_(key) {
-  return Boolean(ADMIN_KEY) && String(key || '') === ADMIN_KEY;
+  const expected = adminKey_();
+  if (!expected) return false;
+  const given = String(key || '');
+  if (given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) {
+    diff |= expected.charCodeAt(i) ^ given.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 function normaliseStatus_(value) {

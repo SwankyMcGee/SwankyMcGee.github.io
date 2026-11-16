@@ -18,11 +18,17 @@ A long random string. Generate one in PowerShell:
 
 ## 2. Put it in the script
 
+Store it as a **Script Property**, not in the code:
+
 1. Open the sheet → **Extensions → Apps Script**.
-2. In `Code.gs`, find `const ADMIN_KEY = '';` and paste your string
-   between the quotes. **Ctrl+S**.
-3. If you paste a new `Code.gs` from this repo later, re-add the key —
-   it is deliberately not committed anywhere.
+2. **Project Settings** (gear) → **Script Properties** → **Add property**.
+3. Name `ADMIN_KEY`, value your string. **Save script properties**.
+
+The code reads the property first and only falls back to the
+`ADMIN_KEY` constant in `Code.gs`, so a key you pasted into the file
+still works — but the property is the better home. A key in source is a
+key that gets pasted into a repo, and this script's file already lives
+in one. Rotating then means editing a property instead of code.
 
 ## 3. Redeploy
 
@@ -31,13 +37,34 @@ A long random string. Generate one in PowerShell:
 The `/exec` URL stays the same, so `IDEAS_ENDPOINT` in `site.js` does not
 change and the public form keeps working.
 
-## 4. Test in a browser
+## 4. Test it
 
-- `…/exec` → `{"ok":true,"service":"The Ideas Engine","api":4}`
-- `…/exec?key=WRONG&action=ideas` → `{"ok":false,"error":"forbidden"}`
-- `…/exec?key=YOUR_KEY&action=state` → `{"ok":true,"admin":true,"api":4}`
-- `…/exec?key=YOUR_KEY&action=ideas` → `{"ok":true,"ideas":[…]}`
-- `…/exec?key=YOUR_KEY&action=pageviews` → `{"ok":true,"rows":[…]}`
+Admin calls are **POST only** — a key in a URL is a key in history, in
+proxy logs, and in the Referer header of anything that URL touches. A
+plain browser visit still answers the "is it alive" check:
+
+- `…/exec` → `{"ok":true,"service":"The Ideas Engine","api":5}`
+
+Everything else needs a POST. In PowerShell:
+
+```powershell
+$exec = 'https://script.google.com/macros/s/AKfy…/exec'
+$key  = 'YOUR_KEY'
+
+Invoke-RestMethod -Method Post -Uri $exec -Body @{ key = 'WRONG'; action = 'ideas' }
+# {ok, error} → forbidden
+
+Invoke-RestMethod -Method Post -Uri $exec -Body @{ key = $key; action = 'state' }
+# ok, admin, api, minSupportedVersionCode, manifestVersion
+
+Invoke-RestMethod -Method Post -Uri $exec -Body @{ key = $key; action = 'ideas' }
+# ok, ideas: [ … ]
+```
+
+`GET` with `action` or `key` is refused by name:
+`{"ok":false,"error":"admin actions must use POST"}`. That answer is what
+an app older than v1.9 gets — it's a clear failure rather than
+`forbidden`, which is what makes the upgrade obvious.
 
 ## 5. Enter it in the app
 
@@ -46,18 +73,21 @@ the key. The app keeps them in its own storage; nothing is shared.
 
 ## What the admin API can do
 
-| Action | Method | Fields | Result |
-|---|---|---|---|
-| `state` | GET | `key` | `{ ok, admin, api, minSupportedVersionCode }` — the app's connection test |
-| `ideas` | GET | `key` | `{ ok, ideas: [...] }` — everything, newest first |
-| `changes` | GET | `key`, `since` (epoch ms) | `{ ok, ideas: [...], serverTime }` — only rows touched since |
-| `read` | POST | `key`, `ids` (comma-separated row numbers) | `{ ok, changed }` |
-| `status` | POST | `key`, `id`, `status`, `note` (optional) | `{ ok }` |
-| `reply` | POST | `key`, `id`, `body` | `{ ok, reply }` — also appends to `Replies` |
-| `replies` | GET | `key`, `id` | `{ ok, replies: [...] }` |
-| `pageviews` | GET | `key`, `days` (optional) | `{ ok, rows: [...] }` — raw rows, grouped by path and day |
-| `usage` | GET | `key`, `days` (optional) | `{ ok, tools, resources, pages, unmapped, perDay, ... }` — already rolled up |
-| `manifest` | GET | `key` | `{ ok, manifest }` — the site's registry (`site-manifest.json`) |
+Every action is a form-encoded **POST** — `key`, `action`, then fields.
+The key is never in the URL.
+
+| Action | Fields | Result |
+|---|---|---|
+| `state` | `key` | `{ ok, admin, api, minSupportedVersionCode }` — the app's connection test |
+| `ideas` | `key` | `{ ok, ideas: [...] }` — everything, newest first |
+| `changes` | `key`, `since` (epoch ms) | `{ ok, ideas: [...], serverTime }` — only rows touched since |
+| `read` | `key`, `ids` (comma-separated row numbers) | `{ ok, changed }` |
+| `status` | `key`, `id`, `status`, `note` (optional) | `{ ok }` |
+| `reply` | `key`, `id`, `body` | `{ ok, reply }` — also appends to `Replies` |
+| `replies` | `key`, `id` | `{ ok, replies: [...] }` |
+| `pageviews` | `key`, `days` (optional) | `{ ok, rows: [...] }` — raw rows, grouped by path and day |
+| `usage` | `key`, `days` (optional) | `{ ok, tools, resources, pages, unmapped, perDay, ... }` — already rolled up |
+| `manifest` | `key` | `{ ok, manifest }` — the site's registry (`site-manifest.json`) |
 
 Idea shape:
 
@@ -121,7 +151,7 @@ identifies a person.
 - **Rate limit (bot trap):** one path on one day stops being recorded
   after **200 pings** or **2 hours** of reported time; the rest are
   dropped with a fake `ok`, exactly like the form's honeypot.
-- **Read (admin):** `GET ?key=YOUR_KEY&action=pageviews` →
+- **Read (admin):** `POST action=pageviews` with `key`, optional `days` →
 
 ```json
 { "ok": true, "rows": [
@@ -153,12 +183,42 @@ API treats as unread / new).
 
 ## Notes
 
-- The key travels in the URL, so it lands in Apps Script logs. That is
-  acceptable for a single-teacher inbox; it is **not** a login. Anyone
-  with the key can read staff names and emails from the sheet — treat it
-  like a house key.
+- **The key travels in the POST body, over TLS, and stops there.** It is
+  not a login and there is no per-user identity: anyone with the key can
+  read staff names and emails from the sheet. Treat it like a house key.
+- **Keep it out of URLs.** v4 accepted `GET ?key=…`, which put the key in
+  browser history, proxy logs and the Referer header. v5 refuses admin
+  GETs. If you are pasting a command to test the API, paste a POST.
+- **Store it as a Script Property** (step 2), not in `Code.gs`. The repo
+  copy of this file has `ADMIN_KEY = ''` on purpose.
+- **Rotate it** when a device is lost, when someone leaves, or when the
+  key has been anywhere it shouldn't: Project Settings → Script
+  Properties, replace `ADMIN_KEY`, save, then update the app's Settings
+  with the new one. There is no other place to change — that is the
+  point of the property.
 - If the key is empty, every admin call gets `forbidden`. That is the
   safe default on purpose.
-- To revoke: clear `ADMIN_KEY`, save, redeploy as a new version.
+- To revoke without issuing a new one: clear `ADMIN_KEY`, save. Every
+  admin call gets `forbidden` until it's set again.
 - The public form is unchanged: no key, no admin columns written by
   submitters (they get `Read = no`, `Status = new`).
+
+## Deploying v5 (one time)
+
+v5 moves admin reads from GET to POST, and the app and the backend have
+to move together. **Backend first, then the app** — the other order does
+not work, because v4 only accepted POST for `read`, `status` and
+`reply`; every read (`state`, `ideas`, `usage`, …) was GET-only, so an
+app that only POSTs gets `unknown action` from a v4 backend.
+
+1. **Redeploy this script** (Manage deployments → edit → New version →
+   Deploy). `/exec` does not change, so `site.js` and the public form
+   are untouched.
+2. **Install app v1.9.** Until you do, the installed v1.8 gets
+   `admin actions must use POST` on every read and its inbox shows an
+   error. That is the expected state for the few minutes in between,
+   not a fault: the update banner comes from GitHub, not from this
+   script, so v1.8 still offers v1.9 and installs it normally.
+
+Once v1.9 is on, everything reads normally again and nothing about the
+cutover needs repeating.
