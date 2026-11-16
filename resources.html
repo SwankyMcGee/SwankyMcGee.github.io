@@ -22,18 +22,24 @@
   <h1>Resources</h1>
   <p class="meta">Pick a tool, then open its staff resources · App state: November 2026</p>
 
+  <!--
+    The select and the tool sections are rendered from
+    site-manifest.json by site.js (initResources). Everything between
+    the tool-picker and the closing note is the no-JS / offline
+    fallback; when the manifest loads it is replaced wholesale.
+  -->
   <div class="tool-picker">
     <label for="toolSelect">Show resources for</label>
     <select id="toolSelect">
       <option value="" selected>Select a tool…</option>
-      <option value="timer">Work Cycle Timer</option>
+      <option value="work-cycle-timer">Work Cycle Timer</option>
     </select>
   </div>
 
   <p class="meta" id="pickerHint">Choose a tool above to see its staff resources.</p>
 
   <!-- Work Cycle Timer resources -->
-  <section class="tool-group" data-tool="timer">
+  <section class="tool-group" data-tool="work-cycle-timer">
     <div class="cards">
       <a class="card" href="quick-start.html">
         <h3>Quick start</h3>
@@ -68,36 +74,12 @@
     </div>
   </section>
 
-  <!--
-    Adding a tool's resources later:
-    1. Add <option value="your-tool">Your Tool</option> to the select above.
-    2. Copy a <section class="tool-group" data-tool="your-tool"> block below
-       and put the tool's resource cards inside it.
-    The script at the bottom matches them up automatically.
-  -->
-
   <p class="meta">More tools' resources will appear in the dropdown as tools are added.</p>
 </main>
 
 <footer class="site-foot">
   <a href="index.html">Home</a> · Staff resources for The Learning Toolshed · App state: November 2026
 </footer>
-
-<script>
-  // Show only the selected tool's resource cards; start empty.
-  const picker = document.getElementById('toolSelect');
-  const hint = document.getElementById('pickerHint');
-  const groups = document.querySelectorAll('.tool-group');
-  function showSelected() {
-    const chosen = picker.value;
-    groups.forEach(function (g) {
-      g.hidden = (g.getAttribute('data-tool') !== chosen);
-    });
-    hint.hidden = !!chosen;
-  }
-  picker.addEventListener('change', showSelected);
-  showSelected();
-</script>
 
 </body>
 </html>

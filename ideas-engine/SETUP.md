@@ -46,7 +46,7 @@ and ship it.
    **Send idea →** → the "Gulp!" confirmation appears, and a row shows
    up in the sheet's **Ideas** tab with type, timestamp, idea, name,
    and the tool.
-2. Visit the `/exec` URL directly → `{"ok":true,"service":"The Ideas Engine","api":3}`.
+2. Visit the `/exec` URL directly → `{"ok":true,"service":"The Ideas Engine","api":4}`.
 
 ## Notes
 
@@ -56,13 +56,14 @@ and ship it.
 - The old Google Form stays up as the in-page **error fallback** only;
   its responses remain readable in its own spreadsheet.
 - Rows: `Type | When | Idea | Name or email | Which tool | Read | Status |
-  Note`. `Type` is `Tool` or `Feature`; `Which tool` is filled for feature
-  ideas only. `Read`, `Status` and `Note` belong to the Toolshed Admin
-  app — key setup, endpoints and the anonymous page-view sheet are in
-  `ADMIN.md` next to this file.
+  Note | Updated`. `Type` is `Tool` or `Feature`; `Which tool` is filled
+  for feature ideas only. `Read`, `Status`, `Note` and `Updated` belong to
+  the Toolshed Admin app — key setup, endpoints and the anonymous
+  page-view sheet are in `ADMIN.md` next to this file.
   An older header (the pre-Type layout) is rewritten to this shape
   automatically on the next submission — clear any rows it leaves
-  misaligned beneath it.
-- The dropdown lists whatever is in `TOOLS` at the top of `site.js`
-  (the site's tool registry — new tools go there; see README →
-  Adding a tool).
+  misaligned beneath it. Missing trailing columns are appended rather
+  than rewritten, so an existing sheet gains `Updated` in place.
+- The dropdown is built from `site-manifest.json` (see README → Adding a
+  tool), not from a list in `site.js`. If the manifest can't be fetched
+  the page falls back to the short list at the top of `site.js`.

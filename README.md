@@ -39,20 +39,24 @@ picked here shows up in the tools and vice versa.
 
 ## Adding a tool
 
+Everything about *which tools exist* lives in one file now:
+**`site-manifest.json`** at the site root. The Tools hub, the Resources
+hub and the Ideas Engine's "Which tool is it for?" dropdown all read it,
+and so does the Toolshed Admin app (through the backend's
+`action=manifest`). Add a tool there and every surface picks it up —
+including the app, with no app release.
+
 1. Ship the tool's app in its own repo with its own GitHub Pages path
    (e.g. `/some-tool/`).
-2. Add a card to `tools.html`, and add the tool's name to `TOOLS` in
-   `site.js` — the Ideas Engine's "Which tool is it for?" dropdown is
-   built from that list, so it picks the tool up by itself.
-3. Add its staff resources as pages here, then register them on
-   `resources.html`: an `<option>` in the dropdown plus a matching
-   `<section class="tool-group" data-tool="…">` block (there's a comment
-   in the file showing exactly what to copy). The dropdown shows only the
-   selected tool's cards.
+2. Add the tool to `site-manifest.json`: an entry in `tools` with its
+   `id` (a stable slug — this is the key, not the name), `name`,
+   `path` and `blurb`.
+3. Add its staff resources as pages here, then add one `pages` entry per
+   page with `"kind": "resource"` and the tool's `id`.
 4. Every new page needs `<script src="site.js"></script>` in its `<head>`
    right after the site.css link — it applies the shared palette before
-   first paint (no flash) and adds the 🎨 Palette button to the header.
-   Palettes come from the timer's setting
+   first paint (no flash), adds the 🎨 Palette button to the header, and
+   registers the page's usage. Palettes come from the timer's setting
    (`localStorage["workCycleTimer.settings.v1"].theme`); a tool with its
    own theme UI should read and write that same field (patching one field
    of the parsed JSON, never overwriting the rest) so every page and tool
@@ -61,6 +65,14 @@ picked here shows up in the tools and vice versa.
    its selector to the logo-swap rule in `site.css` (the hero
    wordmark is dark slate — dark palettes get
    `toolshed-logo-light.png`).
+
+`TOOLS` at the top of `site.js` is only the fallback for when the
+manifest can't be fetched — keep it roughly in step, but forgetting it
+can't break anything.
+
+If a page is visited that isn't in the manifest, the admin app shows it
+under "Not in the registry" on the Usage tab. That list is the to-do:
+each row is a `pages` entry waiting to be written.
 
 ## Publishing
 

@@ -33,9 +33,9 @@ change and the public form keeps working.
 
 ## 4. Test in a browser
 
-- `…/exec` → `{"ok":true,"service":"The Ideas Engine","api":3}`
+- `…/exec` → `{"ok":true,"service":"The Ideas Engine","api":4}`
 - `…/exec?key=WRONG&action=ideas` → `{"ok":false,"error":"forbidden"}`
-- `…/exec?key=YOUR_KEY&action=state` → `{"ok":true,"admin":true,"api":3}`
+- `…/exec?key=YOUR_KEY&action=state` → `{"ok":true,"admin":true,"api":4}`
 - `…/exec?key=YOUR_KEY&action=ideas` → `{"ok":true,"ideas":[…]}`
 - `…/exec?key=YOUR_KEY&action=pageviews` → `{"ok":true,"rows":[…]}`
 
@@ -48,22 +48,65 @@ the key. The app keeps them in its own storage; nothing is shared.
 
 | Action | Method | Fields | Result |
 |---|---|---|---|
-| `state` | GET | `key` | `{ ok, admin, api }` — the app's connection test |
-| `ideas` | GET | `key` | `{ ok, ideas: [...] }` — newest first |
+| `state` | GET | `key` | `{ ok, admin, api, minSupportedVersionCode }` — the app's connection test |
+| `ideas` | GET | `key` | `{ ok, ideas: [...] }` — everything, newest first |
+| `changes` | GET | `key`, `since` (epoch ms) | `{ ok, ideas: [...], serverTime }` — only rows touched since |
 | `read` | POST | `key`, `ids` (comma-separated row numbers) | `{ ok, changed }` |
 | `status` | POST | `key`, `id`, `status`, `note` (optional) | `{ ok }` |
-| `pageviews` | GET | `key` | `{ ok, rows: [...] }` — last 90 days, grouped by path and day |
+| `reply` | POST | `key`, `id`, `body` | `{ ok, reply }` — also appends to `Replies` |
+| `replies` | GET | `key`, `id` | `{ ok, replies: [...] }` |
+| `pageviews` | GET | `key`, `days` (optional) | `{ ok, rows: [...] }` — raw rows, grouped by path and day |
+| `usage` | GET | `key`, `days` (optional) | `{ ok, tools, resources, pages, unmapped, perDay, ... }` — already rolled up |
+| `manifest` | GET | `key` | `{ ok, manifest }` — the site's registry (`site-manifest.json`) |
 
 Idea shape:
 
 ```json
 { "id": 12, "type": "Feature", "when": "2026-11-15T09:04:11.000Z",
   "idea": "…", "name": "…", "tool": "Math Playground",
-  "read": false, "status": "new", "note": "" }
+  "read": false, "status": "new", "note": "", "updated": "2026-11-15T09:04:11.000Z" }
 ```
 
 `status` is one of `new | reading | planned | done | shelved`; anything
-else is stored as `new`.
+else is stored as `new`. `updated` is blank for rows written before
+v1.7.
+
+## Growing without an app release
+
+Three things keep the app from needing a new build every time the site
+grows:
+
+**`action=manifest`** serves `site-manifest.json` from the site, cached
+for six hours. It's the one place a tool or a page is declared; the
+app's "Ideas per tool" chart, its page titles and its tool list all
+come from it. A new tool reaches every device on the next sync.
+
+**`action=changes&since=`** returns only rows touched since the app's
+last sync, so the background sync stops re-reading the whole sheet.
+Rows edited by hand in the sheet don't move the `Updated` cell — the
+app only hears about changes the app itself wrote. A full `ideas` read
+still exists and is what a fresh install uses.
+
+**`action=usage`** rolls the page views up per tool and per page before
+sending them, so the answer stays a few hundred bytes no matter how
+many visits the site gets. A path the manifest doesn't know comes back
+in `unmapped` rather than being dropped — that list is the to-do: each
+row is a page to add to the manifest.
+
+## The nightly rollup
+
+`action=usage` prefers the `DailyRollup` sheet (one row per path per
+day) and only falls back to aggregating `PageViews` live if that sheet
+has nothing for today. Install the trigger **once**, from the Apps
+Script editor:
+
+1. Select `installDailyRollup_` in the function dropdown.
+2. Press **Run**. Authorise it when asked.
+3. It runs daily at 02:00, folds yesterday's views into one row per
+   path, and drops rollup rows older than twice the retention window.
+
+Re-running the install replaces the old trigger rather than adding a
+second one.
 
 ## Page views (anonymous usage)
 
@@ -98,13 +141,15 @@ identifies a person.
 
 ## New columns
 
-The sheet now has eight columns:
-`Type | When | Idea | Name or email | Which tool | Read | Status | Note`.
+The sheet now has nine columns:
+`Type | When | Idea | Name or email | Which tool | Read | Status | Note | Updated`.
 The header rewrites itself on the next submission if it finds an older
-one. **Old data below the header does not migrate** — rows written before
-the admin columns existed stay where they are and keep working (their
-`Read`/`Status`/`Note` cells simply read as blank, which the API treats
-as unread / new).
+one, and appends only the columns that are missing, so an existing
+sheet gains `Updated` without losing anything. **Old data below the
+header does not migrate** — rows written before the admin columns
+existed stay where they are and keep working (their
+`Read`/`Status`/`Note`/`Updated` cells simply read as blank, which the
+API treats as unread / new).
 
 ## Notes
 

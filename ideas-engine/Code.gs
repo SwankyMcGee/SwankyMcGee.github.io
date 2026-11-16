@@ -11,25 +11,41 @@
            key=<ADMIN_KEY>; see ADMIN_KEY below and
            ideas-engine/ADMIN.md.
 
-   Admin actions (need the key):
-     GET  ?key=…&action=state        -> { ok, admin: true, api }
-     GET  ?key=…&action=ideas        -> { ok, ideas: [ … ] }
-     GET  ?key=…&action=replies&id=  -> { ok, replies: [ … ] }
-     GET  ?key=…&action=pageviews    -> { ok, rows: [ … ] }
-     POST ?key=…&action=read         -> { ok }   ids: 1,2,3
-     POST ?key=…&action=status       -> { ok }   id, status, note
-     POST ?key=…&action=reply        -> { ok }   id, body
+Admin actions (need the key):
+      GET  ?key=…&action=state        -> { ok, admin: true, api, minSupportedVersionCode }
+      GET  ?key=…&action=ideas        -> { ok, ideas: [ … ] }
+      GET  ?key=…&action=changes&since= -> { ok, ideas: [ … ], serverTime }
+      GET  ?key=…&action=replies&id=  -> { ok, replies: [ … ] }
+      GET  ?key=…&action=pageviews    -> { ok, rows: [ … ] }        (days=)
+      GET  ?key=…&action=usage&days=  -> { ok, source, tools, resources, pages, unmapped, perDay }
+      GET  ?key=…&action=manifest     -> { ok, manifest }           (the site's registry)
+      POST ?key=…&action=read         -> { ok }   ids: 1,2,3
+      POST ?key=…&action=status       -> { ok }   id, status, note
+      POST ?key=…&action=reply        -> { ok }   id, body
 
-   Public (no key):
-     POST action=track               -> { ok }   path, seconds, referrer
-     — the site's anonymous usage ping; see ADMIN.md.
-   ============================================================ */
+    Public (no key):
+      POST action=track               -> { ok }   path, seconds, referrer
+      — the site's anonymous usage ping; see ADMIN.md.
+    ============================================================ */
 
 const SHEET_NAME = 'Ideas';
 const REPLIES_SHEET = 'Replies';
 const VIEWS_SHEET = 'PageViews';
+const ROLLUP_SHEET = 'DailyRollup';
 const MIN_MILLISECONDS = 3000;   // faster than this is a bot, not a teacher
-const API_VERSION = 3;
+const API_VERSION = 4;
+
+/* The site's registry — every tool, page and resource page. Served to
+   the admin app (action=manifest) so a new tool on the site reaches the
+   app without an app release. Fetched and cached, never stored here:
+   this script's copy would be a second place to keep in step. */
+const MANIFEST_URL = 'https://swankymcgee.github.io/site-manifest.json';
+const MANIFEST_TTL_SECONDS = 6 * 60 * 60;
+
+/* The oldest app build that understands this API. The app compares its
+   own versionCode against this on launch and says "update required"
+   instead of misreading a newer shape. 0 = no gate yet. */
+const MIN_SUPPORTED_VERSION_CODE = 0;
 
 /* Anonymous usage pings — one row per report.
    Columns: Path | When | Seconds | Referrer. One path on one day goes
@@ -43,14 +59,17 @@ const SECONDS_CAP = 3600;        // an idle tab isn't a reader
 
 /* Column order: whether it's a tool or feature idea, when it arrived,
    the idea itself, who sent it, which tool it's for, then the admin
-   columns (read state, status, admin note) added by v1.1. */
+   columns (read state, status, admin note) added by v1.1, and finally
+   "Updated" (v1.7) — the last time a human touched the row, which is
+   what makes action=changes cheap: the app asks for rows changed since
+   its last sync instead of re-reading the whole sheet. */
 const HEADER = ['Type', 'When', 'Idea', 'Name or email', 'Which tool',
-  'Read', 'Status', 'Note'];
+  'Read', 'Status', 'Note', 'Updated'];
 
 /* Read/admin columns — kept together so older code paths stay readable. */
 const COL = {
   type: 0, when: 1, idea: 2, name: 3, tool: 4,
-  read: 5, status: 6, note: 7
+  read: 5, status: 6, note: 7, updated: 8
 };
 
 const STATUS_VALUES = ['new', 'reading', 'planned', 'done', 'shelved'];
@@ -96,15 +115,17 @@ function submitIdea_(data) {
   if (type === 'Feature' && !tool) return fail();
 
   const sheet = ensureSheet_();
+  const stamp = new Date();
   sheet.appendRow([
     type,
-    new Date(),
+    stamp,
     idea,
     String(data.name || '').trim(),
     tool,
     'no',      // Read
     'new',     // Status
-    ''         // Note
+    '',        // Note
+    stamp      // Updated
   ]);
   return ok();
 }
@@ -125,16 +146,44 @@ function doGet(e) {
   if (!isAdmin_(p.key)) return deny();
 
   const action = p.action;
-  if (action === 'state') return json_({ ok: true, admin: true, api: API_VERSION });
+  if (action === 'state') {
+    return json_({
+      ok: true,
+      admin: true,
+      api: API_VERSION,
+      minSupportedVersionCode: MIN_SUPPORTED_VERSION_CODE,
+      manifestVersion: (loadManifest_() || {}).manifestVersion || 0
+    });
+  }
   if (action === 'ideas') return json_({ ok: true, ideas: listIdeas_() });
+  if (action === 'changes') {
+    const since = Number(p.since) || 0;
+    return json_(changes_(since));
+  }
   if (action === 'replies') {
     const id = parseInt(p.id, 10);
     if (!(id >= 2)) return json_({ ok: false, error: 'bad id' });
     return json_({ ok: true, replies: listReplies_(id) });
   }
-  if (action === 'pageviews') return json_({ ok: true, rows: pageViews_() });
+  if (action === 'pageviews') return json_({ ok: true, rows: pageViews_(daysParam_(p.days)) });
+  if (action === 'usage') return usage_(daysParam_(p.days));
+  if (action === 'manifest') {
+    const manifest = loadManifest_();
+    /* No manifest (offline, or GitHub Pages down): say so plainly and
+       let the app fall back to the registry bundled in the APK. */
+    if (!manifest) return json_({ ok: false, error: 'manifest unavailable' });
+    return json_({ ok: true, manifest: manifest });
+  }
 
   return json_({ ok: false, error: 'unknown action' });
+}
+
+/* ?days=30 → 30, clamped to 1…365. Missing or nonsense means 90 —
+   the length the Usage tab has always shown. */
+function daysParam_(raw) {
+  const n = parseInt(raw, 10);
+  if (!isFinite(n) || n <= 0) return 90;
+  return Math.min(365, n);
 }
 
 function listIdeas_() {
@@ -145,23 +194,70 @@ function listIdeas_() {
   const rows = sheet.getRange(2, 1, last - 1, HEADER.length).getValues();
   const out = [];
   for (let i = 0; i < rows.length; i++) {
-    const r = rows[i];
-    const when = toDate_(r[COL.when]);
-    out.push({
-      id: i + 2,                                    // sheet row number
-      type: String(r[COL.type] || ''),
-      when: when ? when.toISOString() : String(r[COL.when] || ''),
-      idea: String(r[COL.idea] || ''),
-      name: String(r[COL.name] || ''),
-      tool: String(r[COL.tool] || ''),
-      read: String(r[COL.read] || '') === 'yes',
-      status: normaliseStatus_(r[COL.status]),
-      note: String(r[COL.note] || '')
-    });
+    out.push(rowToIdea_(rows[i], i));
   }
   /* Newest first — the order the inbox shows by default. */
   out.sort((a, b) => (a.when < b.when ? 1 : a.when > b.when ? -1 : b.id - a.id));
   return out;
+}
+
+/* One sheet row → the idea object the app reads. Shared by the full
+   read and the delta read so the two can never drift apart. */
+function rowToIdea_(r, index) {
+  const when = toDate_(r[COL.when]);
+  const updated = toDate_(r[COL.updated]);
+  return {
+    id: index + 2,                                  // sheet row number
+    type: String(r[COL.type] || ''),
+    when: when ? when.toISOString() : String(r[COL.when] || ''),
+    idea: String(r[COL.idea] || ''),
+    name: String(r[COL.name] || ''),
+    tool: String(r[COL.tool] || ''),
+    read: String(r[COL.read] || '') === 'yes',
+    status: normaliseStatus_(r[COL.status]),
+    note: String(r[COL.note] || ''),
+    /* Blank for rows written before v1.7 — the app treats those as
+       "unknown" rather than "changed a moment ago". */
+    updated: updated ? updated.toISOString() : ''
+  };
+}
+
+/* The delta read. `since` is epoch milliseconds from the app's last
+   successful sync; 0 means "everything" (a first sync, or a cache
+   cleared).
+
+   A row counts as changed when:
+     - its Updated column is newer than `since`, or
+     - it has no Updated column at all and it arrived after `since`
+       (rows from before v1.7 keep working: they're picked up by their
+       own timestamp once, then never again).
+   A row someone edits by hand in the sheet is invisible here — the
+   Updated cell only moves when the app writes. That's the trade for
+   not re-reading the whole sheet on every launch. */
+function changes_(sinceMs) {
+  const sheet = ensureSheet_();
+  const last = sheet.getLastRow();
+  if (last < 2) return { ok: true, ideas: [], serverTime: Date.now() };
+
+  const rows = sheet.getRange(2, 1, last - 1, HEADER.length).getValues();
+  const out = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const updated = toDate_(r[COL.updated]);
+    let changed;
+    if (!sinceMs) {
+      changed = true;
+    } else if (updated) {
+      changed = updated.getTime() > sinceMs;
+    } else {
+      const when = toDate_(r[COL.when]);
+      changed = Boolean(when) && when.getTime() > sinceMs;
+    }
+    if (!changed) continue;
+    out.push(rowToIdea_(r, i));
+  }
+  out.sort((a, b) => (a.when < b.when ? 1 : a.when > b.when ? -1 : b.id - a.id));
+  return { ok: true, ideas: out, serverTime: Date.now() };
 }
 
 /* ---------------- Admin: mark read / set status ---------------- */
@@ -169,11 +265,16 @@ function listIdeas_() {
 function markRead_(ids) {
   const sheet = ensureSheet_();
   const last = sheet.getLastRow();
+  const stamp = new Date();
   let changed = 0;
   ids.forEach((raw) => {
     const id = parseInt(raw, 10);
     if (!(id >= 2 && id <= last)) return;
     sheet.getRange(id, COL.read + 1).setValue('yes');
+    /* Stamped so action=changes can see the edit — the app keeps its
+       own copy of "read" and needs to hear about it from another
+       device. */
+    sheet.getRange(id, COL.updated + 1).setValue(stamp);
     changed++;
   });
   return changed;
@@ -187,6 +288,7 @@ function setStatus_(id, status, note) {
   if (note !== undefined && note !== null) {
     sheet.getRange(row, COL.note + 1).setValue(String(note).slice(0, 2000));
   }
+  sheet.getRange(row, COL.updated + 1).setValue(new Date());
   return true;
 }
 
@@ -288,14 +390,52 @@ function ensureViewsSheet_() {
   return sheet;
 }
 
-/* The Usage question: what happened over the last VIEWS_KEEP_DAYS,
-   grouped by path and day. */
-function pageViews_() {
+/* Day | Path | Views | Seconds — one row per page per day, written by
+   the nightly trigger (installDailyRollup_). Reading 90 of these is
+   cheap; reading 90 days of PageViews isn't, once the site is busy. */
+const ROLLUP_HEADER = ['Day', 'Path', 'Views', 'Seconds'];
+
+function ensureRollupSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(ROLLUP_SHEET);
+  if (!sheet) sheet = ss.insertSheet(ROLLUP_SHEET);
+  if (String(sheet.getRange('A1').getValue()) !== ROLLUP_HEADER[0]) {
+    sheet.getRange(1, 1, 1, ROLLUP_HEADER.length).setValues([ROLLUP_HEADER]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/* "/index.html" and "/" are the same page; "/math-playground" and
+   "/math-playground/" are the same page. Both collapse to the
+   slash-free form (except the site root, which stays "/"), which is
+   the form the manifest uses. Must stay in step with
+   canonicalPath() in the app (SiteRegistry.kt). */
+function canonicalPath_(raw) {
+  let p = String(raw || '').trim();
+  if (p.indexOf('http://') === 0 || p.indexOf('https://') === 0) {
+    p = '/' + p.split('://')[1].split('/').slice(1).join('/');
+  }
+  if (p.length > 11 && p.slice(-11) === '/index.html') {
+    p = p.slice(0, -10);
+  }
+  if (p.length > 1 && p.charAt(p.length - 1) === '/') {
+    p = p.slice(0, -1);
+  }
+  return p || '/';
+}
+
+/* The Usage question: what happened over the last `days` days, grouped
+   by path and day. This is the raw feed — small enough to read, big
+   enough to be slow once the site is busy. Prefer action=usage, which
+   returns the same thing already rolled up per tool and page. */
+function pageViews_(days) {
   const sheet = ensureViewsSheet_();
   const last = sheet.getLastRow();
   if (last < 2) return [];
 
-  const cutoff = Date.now() - VIEWS_KEEP_DAYS * 24 * 60 * 60 * 1000;
+  const span = days || VIEWS_KEEP_DAYS;
+  const cutoff = Date.now() - span * 24 * 60 * 60 * 1000;
   const rows = sheet.getRange(2, 1, last - 1, VIEWS_HEADER.length).getValues();
   const groups = {};
   for (let i = 0; i < rows.length; i++) {
@@ -321,6 +461,281 @@ function pageViews_() {
 
 function dayKey_(date) {
   return Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+/* ---------------- The site manifest ---------------- */
+
+/* The site's registry (site-manifest.json): the tools, their pages and
+   the resource pages. It's the one place a new tool is declared, and
+   both the site and the app read it — so a new tool reaches the app
+   without an app release.
+
+   Fetched over the network and kept in CacheService for
+   MANIFEST_TTL_SECONDS. A failed fetch returns null and callers fall
+   back to what they already have; nothing here is allowed to take the
+   admin API down with it. */
+function loadManifest_() {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('manifest');
+  if (cached) {
+    try { return JSON.parse(cached); } catch (err) { /* fall through */ }
+  }
+  try {
+    const res = UrlFetchApp.fetch(MANIFEST_URL, { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) return null;
+    const data = JSON.parse(res.getContentText());
+    if (!data || !Array.isArray(data.tools) || !Array.isArray(data.pages)) return null;
+    /* CacheService holds 100KB per key — the manifest is a few KB, but
+       guard anyway so a runaway file can't start throwing. */
+    const text = JSON.stringify(data);
+    if (text.length < 90 * 1024) cache.put('manifest', text, MANIFEST_TTL_SECONDS);
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
+/* ---------------- Usage, rolled up ---------------- */
+
+/* Everything the Usage tab draws, in one small answer.
+
+   Rows come from the DailyRollup sheet when it has them (a nightly
+   trigger writes one row per path per day, so this stays fast no
+   matter how many visits the site gets); otherwise it falls back to
+   aggregating PageViews live, which is correct but slower.
+
+   Paths are mapped to tools through the manifest. A path the manifest
+   doesn't know lands in `unmapped` rather than vanishing — that list
+   is the to-do: each row is a page waiting for a manifest entry. */
+function usage_(days) {
+  const span = days || 90;
+  const manifest = loadManifest_();
+  /* No manifest means no tool or page names to group by. Saying so
+     lets the app fall back to raw rows plus the registry bundled in
+     the APK, which is a better answer than everything landing in
+     "unmapped". */
+  if (!manifest) return json_({ ok: false, error: 'manifest unavailable' });
+  const pages = manifest.pages;
+  const tools = manifest.tools;
+
+  const rows = rollupRows_(span);
+  const source = rows.fromRollup ? 'rollup' : 'live';
+
+  /* Canonicalise the path the same way the app does, so "/quick-start.html"
+     and "/quick-start" are one page. */
+  const byPath = {};
+  rows.rows.forEach((r) => {
+    const path = canonicalPath_(r.path);
+    if (!byPath[path]) byPath[path] = { path: path, views: 0, seconds: 0, days: {} };
+    byPath[path].views += Number(r.views) || 0;
+    byPath[path].seconds += Number(r.seconds) || 0;
+    if (r.day) byPath[path].days[r.day] = (byPath[path].days[r.day] || 0) + (Number(r.views) || 0);
+  });
+
+  const pageFor = (path) => pages.filter((p) => canonicalPath_(p.path) === path)[0] || null;
+  const toolFor = (toolId) => tools.filter((t) => t.id === toolId)[0] || null;
+
+  /* Per tool: every page that names it. */
+  const toolRows = tools.map((tool) => {
+    let views = 0;
+    let seconds = 0;
+    Object.keys(byPath).forEach((path) => {
+      const page = pageFor(path);
+      if (page && page.tool === tool.id) {
+        views += byPath[path].views;
+        seconds += byPath[path].seconds;
+      }
+    });
+    return { id: tool.id, name: tool.name, views: views, seconds: seconds };
+  });
+
+  /* Per resource page, including the ones nobody has opened — a zero
+     is information ("this guide is not being used"), not noise. */
+  const resourceRows = [];
+  pages.forEach((page) => {
+    if (page.kind !== 'resource') return;
+    const hit = byPath[canonicalPath_(page.path)];
+    const tool = toolFor(page.tool);
+    resourceRows.push({
+      id: page.path,
+      tool: page.tool,
+      toolName: tool ? tool.name : page.tool,
+      title: page.title,
+      path: page.path,
+      views: hit ? hit.views : 0,
+      seconds: hit ? hit.seconds : 0
+    });
+  });
+  resourceRows.sort((a, b) => b.views - a.views);
+
+  /* Every page we know about, most-used first — the "what's actually
+     being used" list. */
+  const pageRows = [];
+  Object.keys(byPath).forEach((path) => {
+    const page = pageFor(path);
+    pageRows.push({
+      path: path,
+      title: page ? page.title : path,
+      tool: page ? page.tool : '',
+      kind: page ? page.kind : 'unknown',
+      views: byPath[path].views,
+      seconds: byPath[path].seconds
+    });
+  });
+  pageRows.sort((a, b) => b.views - a.views);
+
+  /* Paths the manifest doesn't know. Anything here is a page to add. */
+  const unmapped = pageRows
+    .filter((p) => !p.tool && p.kind === 'unknown' && p.path !== '/')
+    .map((p) => ({ path: p.path, views: p.views, seconds: p.seconds }))
+    .sort((a, b) => b.views - a.views);
+
+  /* Daily series, oldest first, `span` days including today. */
+  const perDayMap = {};
+  rows.rows.forEach((r) => {
+    if (!r.day) return;
+    perDayMap[r.day] = (perDayMap[r.day] || 0) + (Number(r.views) || 0);
+  });
+  const perDay = [];
+  const today = new Date();
+  for (let i = span - 1; i >= 0; i--) {
+    const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+    const key = dayKey_(d);
+    perDay.push({ day: key, views: perDayMap[key] || 0 });
+  }
+
+  const days = Object.keys(byPath).length
+    ? rows.rows.map((r) => r.day).filter(Boolean).sort()
+    : [];
+
+  return json_({
+    ok: true,
+    days: span,
+    source: source,
+    manifestVersion: manifest.manifestVersion || 0,
+    totalViews: pageRows.reduce((sum, p) => sum + p.views, 0),
+    totalSeconds: pageRows.reduce((sum, p) => sum + p.seconds, 0),
+    tools: toolRows,
+    resources: resourceRows,
+    pages: pageRows.slice(0, 30),
+    unmapped: unmapped,
+    perDay: perDay,
+    firstDay: days.length ? days[0] : '',
+    lastDay: days.length ? days[days.length - 1] : ''
+  });
+}
+
+/* Rows for the last `days` days: from DailyRollup when it's populated,
+   else aggregated live from PageViews. */
+function rollupRows_(days) {
+  const sheet = ensureRollupSheet_();
+  const cutoff = dayKey_(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
+  const last = sheet.getLastRow();
+
+  if (last >= 2) {
+    const rows = sheet.getRange(2, 1, last - 1, ROLLUP_HEADER.length).getValues();
+    const out = [];
+    for (let i = 0; i < rows.length; i++) {
+      const day = String(rows[i][0] || '');
+      if (!day || day < cutoff) continue;
+      out.push({
+        day: day,
+        path: String(rows[i][1] || ''),
+        views: Number(rows[i][2]) || 0,
+        seconds: Number(rows[i][3]) || 0
+      });
+    }
+    /* A rollup from a broken or half-written night would read as
+       "nobody visited" — only trust it if it covers today. */
+    const today = dayKey_(new Date());
+    if (out.some((r) => r.day === today) || days <= 1) {
+      return { rows: out, fromRollup: true };
+    }
+  }
+
+  /* No usable rollup: do it live. Correct, just slower. */
+  const live = pageViews_(days).map((r) => ({
+    day: r.day,
+    path: r.path,
+    views: r.views,
+    seconds: r.seconds
+  }));
+  return { rows: live, fromRollup: false };
+}
+
+/* The nightly job: fold yesterday's PageViews into one row per path
+   per day, then drop anything older than the retention window. Install
+   once from the editor (run installDailyRollup_ once) — after that it
+   re-arms itself. */
+function rollupNightly_() {
+  const sheet = ensureViewsSheet_();
+  const rollup = ensureRollupSheet_();
+  const last = sheet.getLastRow();
+
+  const today = dayKey_(new Date());
+  const written = {};
+
+  /* Which (day, path) pairs the rollup already has — so re-running the
+     job can't double-count. */
+  const rollupLast = rollup.getLastRow();
+  if (rollupLast >= 2) {
+    const have = rollup.getRange(2, 1, rollupLast - 1, ROLLUP_HEADER.length).getValues();
+    for (let i = 0; i < have.length; i++) {
+      written[String(have[i][0]) + '\u0000' + String(have[i][1])] = true;
+    }
+  }
+
+  const groups = {};
+  if (last >= 2) {
+    const rows = sheet.getRange(2, 1, last - 1, VIEWS_HEADER.length).getValues();
+    for (let i = 0; i < rows.length; i++) {
+      const when = toDate_(rows[i][1]);
+      if (!when) continue;
+      const day = dayKey_(when);
+      if (day >= today) continue;          // today is still being written
+      const path = String(rows[i][0] || '');
+      const key = day + '\u0000' + path;
+      if (written[key]) continue;
+      if (!groups[key]) groups[key] = { day: day, path: path, views: 0, seconds: 0 };
+      groups[key].views += 1;
+      groups[key].seconds += Number(rows[i][2]) || 0;
+    }
+  }
+
+  const out = Object.keys(groups).map((k) => groups[k]);
+  if (out.length) {
+    rollup.getRange(rollupLast + 1, 1, out.length, ROLLUP_HEADER.length)
+      .setValues(out.map((g) => [g.day, g.path, g.views, g.seconds]));
+  }
+
+  /* Keep two windows' worth; older rows are dead weight. */
+  const keepFrom = dayKey_(new Date(Date.now() - (VIEWS_KEEP_DAYS * 2) * 24 * 60 * 60 * 1000));
+  const all = rollup.getLastRow();
+  if (all >= 2) {
+    const values = rollup.getRange(2, 1, all - 1, ROLLUP_HEADER.length).getValues();
+    const kept = values.filter((r) => String(r[0] || '') >= keepFrom);
+    rollup.getRange(2, 1, all - 1, ROLLUP_HEADER.length).clearContent();
+    if (kept.length) {
+      rollup.getRange(2, 1, kept.length, ROLLUP_HEADER.length).setValues(kept);
+    }
+  }
+  return out.length;
+}
+
+function installDailyRollup_() {
+  const existing = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < existing.length; i++) {
+    if (existing[i].getHandlerFunction() === 'rollupNightly_') {
+      /* Move it to 2am rather than adding a second one. */
+      ScriptApp.deleteTrigger(existing[i]);
+    }
+  }
+  ScriptApp.newTrigger('rollupNightly_')
+    .timeBased()
+    .everyDays(1)
+    .atHour(2)
+    .create();
+  return 'installed';
 }
 
 /* Dates read back from the sheet don't always satisfy `instanceof
@@ -405,9 +820,22 @@ function ensureSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
-  if (String(sheet.getRange('A1').getValue()) !== HEADER[0]) {
+
+  const first = String(sheet.getRange('A1').getValue());
+  if (first !== HEADER[0]) {
+    /* Whole header missing (or a pre-v1.1 layout) — write it. */
     sheet.getRange(1, 1, 1, HEADER.length).setValues([HEADER]);
     sheet.setFrozenRows(1);
+    return sheet;
+  }
+
+  /* Header exists but is short: an older deployment predating a
+     column. Append only the missing names, never overwrite a column
+     that already holds data. */
+  const have = sheet.getLastColumn();
+  if (have < HEADER.length) {
+    const add = HEADER.slice(have);
+    sheet.getRange(1, have + 1, 1, add.length).setValues([add]);
   }
   return sheet;
 }

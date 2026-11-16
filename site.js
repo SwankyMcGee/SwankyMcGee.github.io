@@ -53,10 +53,137 @@ const PAGE_NAMES = {
   'glossary.html': 'Glossary'
 };
 
-/* The tools on the Tools hub — the single list the Ideas Engine's
-   "Which tool is it for?" dropdown is built from, so a new tool
-   appears there the moment it's added here (README → Adding a tool). */
+/* The tools on the Tools hub.
+
+   The manifest (site-manifest.json) is the source of truth: the Tools
+   hub, the Resources hub and the Ideas Engine's dropdown all read it,
+   and so does the Toolshed Admin app. This list is only the fallback
+   for when the manifest can't be fetched — keep it in step by hand,
+   or nothing breaks if you forget, it just shows the old set. */
 const TOOLS = ['Work Cycle Timer', 'Math Playground'];
+
+const MANIFEST_URL = 'site-manifest.json';
+let manifestCache = null;
+
+/* Fetch the manifest once per page load. Never throws: on any failure
+   the callers fall back to the lists baked into this file and the HTML,
+   so a missing or malformed manifest can't take a page down. */
+async function loadManifest() {
+  if (manifestCache) return manifestCache;
+  try {
+    const res = await fetch(MANIFEST_URL, { cache: 'no-cache' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data || !Array.isArray(data.tools) || !Array.isArray(data.pages)) {
+      throw new Error('bad manifest');
+    }
+    manifestCache = data;
+  } catch (err) {
+    manifestCache = null;
+  }
+  return manifestCache;
+}
+
+/* ---------- The Tools hub (tools.html) ---------- */
+
+/* Cards come from the manifest: id, name, blurb and target. The blurb
+   is trusted HTML from our own file (it carries the .lbl markup), so
+   it goes in as innerHTML; every other field is text. */
+function toolCardsHtml(tools) {
+  return tools.map((t) => {
+    const id = t.id || slug(t.name);
+    const href = t.path || ('#' + id);
+    return '<a class="card" href="' + escAttr(href) + '" data-tool="' + escAttr(id) + '">' +
+      '<h3>' + esc(t.name) + '</h3>' +
+      '<p>' + (t.blurb || '') + '</p>' +
+      '<span class="go">Open ' + esc(t.name) + ' →</span>' +
+      '</a>';
+  }).join('');
+}
+
+async function initTools() {
+  const grid = document.querySelector('[data-render="tools"]');
+  if (!grid) return;
+  const manifest = await loadManifest();
+  const tools = manifest ? manifest.tools : [];
+  if (!tools.length) return;              // leave the HTML fallback in place
+  grid.innerHTML = toolCardsHtml(tools);
+}
+
+/* ---------- The Resources hub (resources.html) ---------- */
+
+function resourceSectionsHtml(tools, pages) {
+  return tools.map((tool) => {
+    const mine = pages.filter((p) => p.tool === tool.id && p.kind === 'resource');
+    if (!mine.length) return '';
+    const cards = mine.map((p) =>
+      '<a class="card" href="' + escAttr(p.path) + '">' +
+        '<h3>' + esc(p.title) + '</h3>' +
+        '<span class="go">Read →</span>' +
+      '</a>').join('');
+    return '<section class="tool-group" data-tool="' + escAttr(tool.id) + '">' +
+      '<div class="cards">' + cards + '</div></section>';
+  }).join('');
+}
+
+function resourceOptionsHtml(tools) {
+  const opts = tools.map((t) =>
+    '<option value="' + escAttr(t.id) + '">' + esc(t.name) + '</option>');
+  return '<option value="" selected>Select a tool…</option>' + opts.join('');
+}
+
+async function initResources() {
+  const picker = document.getElementById('toolSelect');
+  if (!picker) return;
+  const manifest = await loadManifest();
+  const host = picker.closest('main') || document.body;
+
+  if (manifest) {
+    /* One host for the generated sections, so the static fallback in
+       the HTML can be swapped out cleanly. */
+    let groups = host.querySelector('[data-resource-groups]');
+    if (!groups) {
+      groups = document.createElement('div');
+      groups.setAttribute('data-resource-groups', '');
+      host.insertBefore(groups, picker.closest('.tool-picker').nextSibling);
+      host.querySelectorAll('.tool-group').forEach((g) => g.remove());
+    }
+    groups.innerHTML = resourceSectionsHtml(manifest.tools, manifest.pages);
+    picker.innerHTML = resourceOptionsHtml(manifest.tools);
+  }
+
+  /* With or without the manifest: show the chosen tool's cards and
+     nothing else, until a tool is picked. */
+  bindResourcePicker(picker, host);
+}
+
+function bindResourcePicker(picker, host) {
+  const hint = document.getElementById('pickerHint');
+  const showSelected = () => {
+    const chosen = picker.value;
+    host.querySelectorAll('.tool-group').forEach((g) => {
+      g.hidden = (g.getAttribute('data-tool') !== chosen);
+    });
+    if (hint) hint.hidden = !!chosen;
+  };
+  picker.addEventListener('change', showSelected);
+  showSelected();
+}
+
+/* ---------- Small helpers ---------- */
+
+function esc(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escAttr(value) { return esc(value); }
+
+function slug(value) {
+  return String(value == null ? '' : value).toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
 
 /* Read the shared setting. Never trust it: unknown ids fall back to
    calm, exactly like the timer validates on load. */
@@ -349,13 +476,31 @@ function initIdeas() {
   }
   stamp();
 
-  /* The dropdown is built from TOOLS — one place to add when a new
-     tool ships; the placeholder stays exactly as written in the HTML. */
-  TOOLS.forEach((name) => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    toolSelect.appendChild(opt);
+  /* The dropdown is built from the manifest's tool names — one place to
+     add when a new tool ships. TOOLS is the fallback, and the placeholder
+     stays exactly as written in the HTML. */
+  function fillTools(names) {
+    if (!toolSelect || !names.length) return;
+    const current = toolSelect.value;
+    toolSelect.innerHTML = '';
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = '-Select A Tool-';
+    toolSelect.appendChild(first);
+    names.forEach((name) => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      toolSelect.appendChild(opt);
+    });
+    if (current && names.indexOf(current) >= 0) toolSelect.value = current;
+  }
+
+  fillTools(TOOLS);
+  loadManifest().then((manifest) => {
+    if (manifest && manifest.tools && manifest.tools.length) {
+      fillTools(manifest.tools.map((t) => t.name).filter(Boolean));
+    }
   });
 
   /* "Which tool is it for?" appears only for feature ideas. A hidden
@@ -481,6 +626,8 @@ function initPage() {
   recordLastPage();
   initHome();
   initIdeas();
+  initTools();
+  initResources();
   trackPageView();
 }
 

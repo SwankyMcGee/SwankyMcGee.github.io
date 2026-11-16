@@ -1,0 +1,55 @@
+{
+  "manifestVersion": 1,
+  "updated": "2026-11-16",
+  "minSupportedVersionCode": 0,
+
+  "features": {
+    "usage": true,
+    "analytics": true,
+    "replies": true
+  },
+
+  "tools": [
+    {
+      "id": "work-cycle-timer",
+      "name": "Work Cycle Timer",
+      "icon": "timer",
+      "path": "/work-cycle-timer/timer.html",
+      "repoPath": "/work-cycle-timer/",
+      "blurb": "Two gentle dials: Work and Earn. Hold <span class=\"lbl\">Start Work</span> for 1 second to begin. Works on any device — each browser keeps its own settings."
+    },
+    {
+      "id": "math-playground",
+      "name": "Math Playground",
+      "icon": "calculator",
+      "path": "/math-playground/",
+      "repoPath": "/math-playground/",
+      "blurb": "Four calm math games — Counters, Number Line, Facts and Story Problems. Pick a grade and what to practice. The score only counts successes."
+    }
+  ],
+
+  "pages": [
+    { "path": "/", "title": "Home", "tool": "", "kind": "home" },
+    { "path": "/index.html", "title": "Home", "tool": "", "kind": "home" },
+    { "path": "/tools.html", "title": "Tools hub", "tool": "", "kind": "hub" },
+    { "path": "/resources.html", "title": "Resources hub", "tool": "", "kind": "hub" },
+    { "path": "/ideas.html", "title": "The Ideas Engine", "tool": "", "kind": "hub" },
+
+    { "path": "/work-cycle-timer/", "title": "Work Cycle Timer", "tool": "work-cycle-timer", "kind": "tool" },
+    { "path": "/work-cycle-timer/timer.html", "title": "Work Cycle Timer", "tool": "work-cycle-timer", "kind": "tool" },
+
+    { "path": "/math-playground/", "title": "Math Playground", "tool": "math-playground", "kind": "tool" },
+    { "path": "/math-playground/index.html", "title": "Math Playground", "tool": "math-playground", "kind": "tool" },
+    { "path": "/math-playground/counters.html", "title": "Counters", "tool": "math-playground", "kind": "tool" },
+    { "path": "/math-playground/number-line.html", "title": "Number Line", "tool": "math-playground", "kind": "tool" },
+    { "path": "/math-playground/facts.html", "title": "Facts", "tool": "math-playground", "kind": "tool" },
+    { "path": "/math-playground/story.html", "title": "Story Problems", "tool": "math-playground", "kind": "tool" },
+
+    { "path": "/quick-start.html", "title": "Quick start", "tool": "work-cycle-timer", "kind": "resource" },
+    { "path": "/user-guide.html", "title": "Full user guide", "tool": "work-cycle-timer", "kind": "resource" },
+    { "path": "/settings-ref.html", "title": "Settings reference", "tool": "work-cycle-timer", "kind": "resource" },
+    { "path": "/troubleshooting.html", "title": "Troubleshooting", "tool": "work-cycle-timer", "kind": "resource" },
+    { "path": "/scenarios.html", "title": "Scenario walkthroughs", "tool": "work-cycle-timer", "kind": "resource" },
+    { "path": "/glossary.html", "title": "Glossary", "tool": "work-cycle-timer", "kind": "resource" }
+  ]
+}
