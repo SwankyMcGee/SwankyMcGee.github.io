@@ -246,6 +246,32 @@ function checkTokenInfo() {
   }
 }
 
+/* Temporary: what the tokeninfo fetch actually did, and what the
+   server has configured. Reached at action=diag; delete both. */
+function diag_() {
+  const out = {
+    clientId: adminClientId_(),
+    configured: adminConfigured_(),
+    plain: adminEmails_().length,
+    hashes: adminEmailHashes_().length
+  };
+  const started = Date.now();
+  try {
+    const response = UrlFetchApp.fetch(GOOGLE_TOKENINFO_URL, {
+      method: 'post',
+      payload: { id_token: 'aaa.bbb.ccc' },
+      muteHttpExceptions: true
+    });
+    out.status = response.getResponseCode();
+    out.ms = Date.now() - started;
+    out.body = String(response.getContentText()).substring(0, 300);
+  } catch (err) {
+    out.error = String(err);
+    out.ms = Date.now() - started;
+  }
+  return out;
+}
+
 /* ---------------- Routes ---------------- */
 
 function doGet(e) {
@@ -276,6 +302,10 @@ function doPost(e) {
        Google client to ask for, and it cannot ask for that behind a
        door it has not opened yet. A client ID is not a secret. */
     if (data.action === 'authconfig') return json_(adminAuth_());
+
+    /* Temporary: answers what the tokeninfo fetch actually did, so a
+       sign-in failure can be read without the editor log. Delete. */
+    if (data.action === 'diag') return json_(diag_());
 
     /* The token is checked before the key is even considered: it is the
        stronger of the two, and an app mid-migration should not be
