@@ -33,6 +33,8 @@ Paths on the same domain:
   `https://swankymcgee.github.io/work-cycle-timer/timer.html`
 - Math Playground — `math-playground` repo at
   `https://swankymcgee.github.io/math-playground/`
+- Morning Work — `morning-work` repo at
+  `https://swankymcgee.github.io/morning-work/`
 
 Both read and write the same `localStorage` keys as this site, so the palette
 picked here shows up in the tools and vice versa.

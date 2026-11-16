@@ -60,7 +60,7 @@ const PAGE_NAMES = {
    and so does the Toolshed Admin app. This list is only the fallback
    for when the manifest can't be fetched — keep it in step by hand,
    or nothing breaks if you forget, it just shows the old set. */
-const TOOLS = ['Work Cycle Timer', 'Math Playground'];
+const TOOLS = ['Work Cycle Timer', 'Math Playground', 'Morning Work'];
 
 const MANIFEST_URL = 'site-manifest.json';
 let manifestCache = null;

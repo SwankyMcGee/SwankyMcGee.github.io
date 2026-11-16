@@ -25,6 +25,14 @@
       "path": "/math-playground/",
       "repoPath": "/math-playground/",
       "blurb": "Four calm math games — Counters, Number Line, Facts and Story Problems. Pick a grade and what to practice. The score only counts successes."
+    },
+    {
+      "id": "morning-work",
+      "name": "Morning Work",
+      "icon": "calendar",
+      "path": "/morning-work/",
+      "repoPath": "/morning-work/",
+      "blurb": "A calm morning routine — fill in today's date, look at yesterday and tomorrow, pick the weather and check in with feelings. One step at a time, with a Skip on every part."
     }
   ],
 
@@ -44,6 +52,9 @@
     { "path": "/math-playground/number-line.html", "title": "Number Line", "tool": "math-playground", "kind": "tool" },
     { "path": "/math-playground/facts.html", "title": "Facts", "tool": "math-playground", "kind": "tool" },
     { "path": "/math-playground/story.html", "title": "Story Problems", "tool": "math-playground", "kind": "tool" },
+
+    { "path": "/morning-work/", "title": "Morning Work", "tool": "morning-work", "kind": "tool" },
+    { "path": "/morning-work/index.html", "title": "Morning Work", "tool": "morning-work", "kind": "tool" },
 
     { "path": "/quick-start.html", "title": "Quick start", "tool": "work-cycle-timer", "kind": "resource" },
     { "path": "/user-guide.html", "title": "Full user guide", "tool": "work-cycle-timer", "kind": "resource" },
