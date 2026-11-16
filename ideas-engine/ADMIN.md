@@ -5,11 +5,10 @@ The public `Ideas` sheet is readable by anyone who has the spreadsheet
 link, so the admin surface has its own way in and never touches the
 public submit path.
 
-As of API 6 that way in is **Google sign-in**: the app signs you in with
-Google, and the server checks the token and your email address. You do
-not type a key and nothing is stored on the phone. A key still works, for
-a deployment that has not moved over yet — see *The key, as a fallback*
-at the end.
+That way in is **Google sign-in**. The app signs you in with Google and
+posts the ID token; the server verifies it with Google and checks the
+address against an allowlist. There is no key to type, copy, store or
+rotate, and nothing permanent is kept on the phone.
 
 You need: the spreadsheet from `SETUP.md` (The Learning Toolshed —
 Ideas), edit access to its Apps Script, and a Google Cloud project.
@@ -17,20 +16,18 @@ Ideas), edit access to its Apps Script, and a Google Cloud project.
 ## 1. Create the two OAuth clients
 
 In [console.cloud.google.com](https://console.cloud.google.com), pick (or
-create) a project, then **APIs & Services → OAuth consent screen →
-Credentials**. The consent screen must be configured first; for this app
-an *External* consent screen with your own address added as a **test
-user** is enough.
+create) a project, then set up the **OAuth consent screen** and create
+credentials. The consent screen must exist first; for this app an
+*External* one with your own address added as a **test user** is enough.
 
-**a) Web application client.** Create credentials → **OAuth client ID →
-Web application**. No redirect URIs are needed. Copy the **Client ID**
-(it ends in `.apps.googleusercontent.com`). This is the string the script
-calls `ANDROID_OAUTH_CLIENT_ID`, and the same string the app passes as
-`serverClientId`.
+**a) Web application client.** Credentials → **OAuth client ID → Web
+application**. No redirect URIs are needed. Copy the **Client ID** (it
+ends in `.apps.googleusercontent.com`). This is the string the app passes
+as `serverClientId`, and the audience every ID token is minted for.
 
-**b) Android client.** Create credentials → **OAuth client ID →
-Android**. Package name `com.learningtoolshed.admin`, and the SHA-1 of
-the signing certificate:
+**b) Android client.** Credentials → **OAuth client ID → Android**.
+Package name `com.learningtoolshed.admin`, and the SHA-1 of the signing
+certificate:
 
 ```powershell
 & "C:\Android\Sdk\build-tools\35.0.0\apksigner.bat" verify --print-certs `
@@ -38,56 +35,53 @@ the signing certificate:
 ```
 
 Right now that is `8c46feb16a8bb6735592107365609dd92a84e1e1`. The
-Android client is what Google uses to recognise the app; the ID token it
-produces is still addressed to the **web** client, which is what makes
+Android client is how Google recognises the app on the device; the token
+it produces is still addressed to the **web** client, which is what makes
 the check below possible.
 
-## 2. Put both in the script (optional)
+## 2. Put the values in the script (optional)
 
-`Code.gs` already carries the client ID and the allowlist as constants,
-so a fresh deployment answers `google: true` with no setup at all. The
-Script Properties exist for the two things a file cannot hold:
+`Code.gs` already carries the web client ID and a hashed allowlist as
+constants, so a fresh deployment answers `google: true` with no setup at
+all. Script Properties override them, for the two things a file cannot
+do: change the client without a redeploy, and change the list with no
+code edit.
 
 **Project Settings** (gear) → **Script Properties** → **Add property**:
 
 | Property | Overrides | Why you would |
 |---|---|---|
-| `OAUTH_CLIENT_ID` | the web client ID in `Code.gs` | rotating the client without a redeploy |
-| `ADMIN_EMAILS` | the hashed allowlist in `Code.gs` | changing the list without a redeploy, in a hurry |
-| `ADMIN_KEY` | — | keeping the old door open, then closing it |
+| `OAUTH_CLIENT_ID` | the web client ID in `Code.gs` | rotating the client |
+| `ADMIN_EMAIL_HASHES` | the digest list in `Code.gs` | moving the allowlist out of source |
+| `ADMIN_EMAILS` | the digest list | changing the list in a hurry, in plain text |
 
 `ANDROID_OAUTH_CLIENT_ID` is the old name for `OAUTH_CLIENT_ID`; it is
 still read, so a deployment that already set it does not break. The new
 name wins when both are present.
 
-The one value that must **not** be written into `Code.gs` is
-`ADMIN_KEY`. That file lives in a public repo, so the key stays a
-property. The client ID is public information and the allowlist is
-hashed (below), so neither is a risk in source.
+Nothing secret belongs in `Code.gs`: the file is in a public repo. The
+client ID is public information (it is inside every APK), and the
+allowlist is hashed, so neither is a risk in source. `ADMIN_EMAILS` is
+the break-glass path — plain addresses, but only ever in Script
+Properties.
 
 ### The allowlist is a list of digests
 
-The addresses are not in `Code.gs`, because `Code.gs` is in a public
-repo. A token still arrives with the address in the clear — Google put
-it there — but the file only ever holds SHA-256 digests of the addresses
-that are allowed. A reader of the repo learns nothing from it: no staff
-addresses, no personal Gmail, nothing to phish.
+The addresses are not in `Code.gs`. A token still arrives with the
+address in the clear — Google put it there — but the file only holds
+SHA-256 digests of the addresses that are allowed. A reader of the repo
+learns nothing from it: no staff addresses, no personal Gmail.
 
-To **add** someone, run this once in the Apps Script editor and paste
-the digest it prints into `ADMIN_EMAIL_HASHES`:
+To **add** someone, run this once in the Apps Script editor and paste the
+digest it prints into `ADMIN_EMAIL_HASHES`:
 
 ```js
 hashEmail_('someone@school.org')
 ```
 
 To **remove** someone, delete their digest. Either way it is an edit to
-a constant and a new version of the script; the `/exec` URL does not
-change and nothing on the site or in the app has to be touched.
-
-To **change it without editing code**, set the `ADMIN_EMAILS` Script
-Property to a comma-separated list of addresses. It wins over the
-digests — that is the break-glass path, and the addresses still stay out
-of the repo. (Clear the property to go back to the digests.)
+a constant and a new version of the script; `/exec` does not change and
+nothing on the site or in the app has to be touched.
 
 Both forms are matched case-insensitively and exactly: no wildcards, no
 domains. A trailing space or a different case is fine; a different
@@ -118,12 +112,8 @@ Everything else needs a POST:
 $exec = 'https://script.google.com/macros/s/AKfy…/exec'
 
 # what the server will accept
-Invoke-RestMethod -Method Post -Uri $exec -Body @{ action = 'state' }
-# {ok:false, error:'no credential'}
-
-# a key still works, if one is configured
-Invoke-RestMethod -Method Post -Uri $exec -Body @{ key = 'WRONG'; action = 'ideas' }
-# {ok:false, error:'forbidden'}
+Invoke-RestMethod -Method Post -Uri $exec -Body @{ action = 'authconfig' }
+# {google:true, clientId:'…'}
 
 # a real Google token, from the app (or from OAuth Playground with the
 # web client as the audience)
@@ -136,45 +126,43 @@ different things to the person holding the phone:
 
 | Response | What it means |
 |---|---|
-| `forbidden` | wrong or missing key |
-| `no credential` | neither `idToken` nor `key` was sent |
 | `bad token` | malformed, wrong audience, wrong issuer, or unverified email |
 | `token expired` | the ID token has passed its `exp`; sign in again |
-| `not allowed` | valid token, but the email is not in the allowlist |
+| `not allowed` | valid token, but the address is not on the allowlist |
 | `google sign-in not configured` | no client ID, or no allowlist, on the server |
 | `token check failed` | Google could not be reached |
+| `key sign-in was removed; update the app` | a build older than 1.13 tried to authenticate |
 
-`GET` with `action` or `key` is refused by name:
+`GET` with `action`, `key` or `idToken` is refused by name:
 `{"ok":false,"error":"admin actions must use POST"}`. That answer is what
-an app older than v1.9 gets — it's a clear failure rather than
-`forbidden`, which is what makes the upgrade obvious.
+an app older than v1.9 gets — a clear failure rather than a silent one,
+which is what makes the upgrade obvious.
 
 ## 5. Sign in from the app
 
 Toolshed Admin → **Settings** (gear) → **Sign in with Google**. Pick the
-address that is on the allowlist. The `/exec` URL is already built in;
-there is no key field to fill in and no key stored on the device.
+address that is on the allowlist. The `/exec` URL is already built in.
 
 ## What the admin API can do
 
-Every action is a form-encoded **POST** — `idToken` (or `key`),
-`action`, then fields. The credential is never in the URL.
+Every action is a form-encoded **POST** — `idToken`, `action`, then
+fields. The credential is never in the URL.
 
 | Action | Fields | Result |
 |---|---|---|
-| `state` | `idToken`/`key` | `{ ok, admin, api, minSupportedVersionCode, auth, email }` — the connection test |
-| `ideas` | `idToken`/`key` | `{ ok, ideas: [...] }` — everything, newest first |
-| `changes` | `idToken`/`key`, `since` (epoch ms) | `{ ok, ideas: [...], serverTime }` — only rows touched since |
-| `read` | `idToken`/`key`, `ids` (comma-separated row numbers) | `{ ok, changed }` |
-| `status` | `idToken`/`key`, `id`, `status`, `note` (optional) | `{ ok }` |
-| `reply` | `idToken`/`key`, `id`, `body` | `{ ok, reply }` — also appends to `Replies` |
-| `replies` | `idToken`/`key`, `id` | `{ ok, replies: [...] }` |
-| `pageviews` | `idToken`/`key`, `days` (optional) | `{ ok, rows: [...] }` — raw rows, grouped by path and day |
-| `usage` | `idToken`/`key`, `days` (optional) | `{ ok, tools, resources, pages, unmapped, perDay, ... }` — already rolled up |
-| `manifest` | `idToken`/`key` | `{ ok, manifest }` — the site's registry (`site-manifest.json`) |
+| `state` | `idToken` | `{ ok, admin, api, minSupportedVersionCode, auth, email }` — the connection test |
+| `ideas` | `idToken` | `{ ok, ideas: [...] }` — everything, newest first |
+| `changes` | `idToken`, `since` (epoch ms) | `{ ok, ideas: [...], serverTime }` — only rows touched since |
+| `read` | `idToken`, `ids` (comma-separated row numbers) | `{ ok, changed }` |
+| `status` | `idToken`, `id`, `status`, `note` (optional) | `{ ok }` |
+| `reply` | `idToken`, `id`, `body` | `{ ok, reply: {...} }` — also appends to `Replies` |
+| `replies` | `idToken`, `id` | `{ ok, replies: [...] }` |
+| `pageviews` | `idToken`, `days` (optional) | `{ ok, rows: [...] }` — raw rows, grouped by path and day |
+| `usage` | `idToken`, `days` (optional) | `{ ok, tools, resources, pages, unmapped, perDay, ... }` — already rolled up |
+| `manifest` | `idToken` | `{ ok, manifest }` — the site's registry (`site-manifest.json`) |
 
-`state` also returns `auth: { google, key }` — what this deployment will
-accept — so the app can offer Google sign-in only where it works.
+`state` also returns `auth: { google, clientId }` — what this deployment
+will accept — so the app can offer Google sign-in only where it works.
 
 Idea shape:
 
@@ -195,14 +183,14 @@ grows:
 
 **`action=manifest`** serves `site-manifest.json` from the site, cached
 for six hours. It's the one place a tool or a page is declared; the
-app's "Ideas per tool" chart, its page titles and its tool list all
-come from it. A new tool reaches every device on the next sync.
+app's "Ideas per tool" chart, its page titles and its tool list all come
+from it. A new tool reaches every device on the next sync.
 
 **`action=changes&since=`** returns only rows touched since the app's
 last sync, so the background sync stops re-reading the whole sheet.
-Rows edited by hand in the sheet don't move the `Updated` cell — the
-app only hears about changes the app itself wrote. A full `ideas` read
-still exists and is what a fresh install uses.
+Rows edited by hand in the sheet don't move the `Updated` cell — the app
+only hears about changes the app itself wrote. A full `ideas` read still
+exists and is what a fresh install uses.
 
 **`action=usage`** rolls the page views up per tool and per page before
 sending them, so the answer stays a few hundred bytes no matter how
@@ -233,7 +221,7 @@ identifies a person.
 
 - **Sheet:** a `PageViews` tab with `Path | When | Seconds | Referrer`
   (created automatically the first time a ping arrives).
-- **Write (public, no key):** `POST action=track` with `path`,
+- **Write (public, no credential):** `POST action=track` with `path`,
   `seconds`, `referrer` — one row per ping.
 - **Rate limit (bot trap):** one path on one day stops being recorded
   after **200 pings** or **2 hours** of reported time; the rest are
@@ -259,29 +247,14 @@ identifies a person.
 
 ## New columns
 
-The sheet now has nine columns:
+The sheet has nine columns:
 `Type | When | Idea | Name or email | Which tool | Read | Status | Note | Updated`.
-The header rewrites itself on the next submission if it finds an older
-one, and appends only the columns that are missing, so an existing
-sheet gains `Updated` without losing anything. **Old data below the
-header does not migrate** — rows written before the admin columns
-existed stay where they are and keep working (their
-`Read`/`Status`/`Note`/`Updated` cells simply read as blank, which the
-API treats as unread / new).
-
-## The key, as a fallback
-
-If `ADMIN_KEY` is a Script Property it is accepted exactly as before, so
-a v1.9–v1.12 build keeps working and a deployment can move over at its
-own pace. Generate one with:
-
-```powershell
-[guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
-```
-
-and store it under `ADMIN_KEY` in **Project Settings → Script
-Properties**. The `ADMIN_KEY` constant in `Code.gs` is `''` on purpose —
-this file lives in a repo.
+The header rewrites itself on the next write if it finds an older one,
+and appends only the columns that are missing, so an existing sheet gains
+`Updated` without losing anything. **Old data below the header does not
+migrate** — rows written before the admin columns existed stay where they
+are and keep working (their `Read`/`Status`/`Note`/`Updated` cells simply
+read as blank, which the API treats as unread / new).
 
 ## Notes
 
@@ -299,31 +272,24 @@ this file lives in a repo.
   `ADMIN_EMAILS` property), save, redeploy. Their next request gets
   `not allowed`. Google sign-out on the device is not enough on its own
   — the allowlist is.
-- **Rotate the client ID** only by making a new web client, putting its
-  ID in the property and in a new app build. Tokens minted for the old
-  audience stop verifying at once.
-- **Keep credentials out of URLs.** v4 accepted `GET ?key=…`; v5
-  refuses admin GETs, and v6 does the same for `idToken`.
+- **Rotate the client ID** by making a new web client and putting its ID
+  in `OAUTH_CLIENT_ID` (or the property). The app fetches the ID from
+  the server at launch, so no app release is needed — tokens minted for
+  the old audience stop verifying at once.
+- **Keep credentials out of URLs.** v4 accepted `GET ?key=…`; v5 refused
+  admin GETs, and v6 does the same for `idToken`.
 - **The public form is unchanged:** no credential, no admin columns
   written by submitters (they get `Read = no`, `Status = new`).
 
-## Deploying v6 (one time)
-
-v6 adds Google sign-in. The backend can go first on its own — a v5
-backend receiving an `idToken` sees no `key`, treats the call as a public
-form submission and answers `{"ok":true}`, which looks like a silent
-success; an app older than v1.9 is refused by name.
+## Deploying v6
 
 1. **Redeploy this script** (step 3). `/exec` does not change, so
-   `site.js` and the public form are untouched. Add the Script
-   Properties only if you want to override the defaults in the file
-   (step 2); the key still works until you blank it.
-2. **Install the app build that speaks v6.** Until then the installed
-   build keeps using the key, which is why `ADMIN_KEY` should stay set
-   for now.
-3. **Only once every device has moved:** clear `ADMIN_KEY`, save. Any
-   remaining old build then gets `forbidden` — which is the correct
-   answer, and the reason to do it last.
+   `site.js` and the public form are untouched. The Script Properties are
+   optional — the file carries the client ID and the allowlist.
+2. **Install Toolshed Admin 1.13 or newer.** It is the first build that
+   signs in with Google. Anything older has no way to authenticate and
+   is told so.
 
-`MIN_SUPPORTED_VERSION_CODE` is unchanged at 10: v6 is additive, so
-nothing that worked before stops working.
+`MIN_SUPPORTED_VERSION_CODE` is 13: builds below that cannot sign in at
+all, so they are pointed at the releases page rather than shown an empty
+inbox.

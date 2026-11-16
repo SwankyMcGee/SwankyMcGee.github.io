@@ -58,8 +58,8 @@ and ship it.
 - Rows: `Type | When | Idea | Name or email | Which tool | Read | Status |
   Note | Updated`. `Type` is `Tool` or `Feature`; `Which tool` is filled
   for feature ideas only. `Read`, `Status`, `Note` and `Updated` belong to
-  the Toolshed Admin app — key setup, endpoints and the anonymous
-  page-view sheet are in `ADMIN.md` next to this file.
+the Toolshed Admin app — Google sign-in, endpoints and the anonymous
+page-view sheet are in `ADMIN.md` next to this file.
   An older header (the pre-Type layout) is rewritten to this shape
   automatically on the next submission — clear any rows it leaves
   misaligned beneath it. Missing trailing columns are appended rather
