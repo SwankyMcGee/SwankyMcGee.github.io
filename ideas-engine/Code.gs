@@ -229,6 +229,23 @@ function verifyIdToken_(token) {
   return { ok: true, email: email };
 }
 
+/* Manual check, run from the editor: can this script reach Google at
+   all? Sign-in fails with "token check failed" when the answer is no,
+   and the reason is in the log — either the script has never been
+   granted the external-request scope, or the deployment runs as the
+    person visiting instead of as the owner.
+
+    Delete this once the deployment is answering. */
+function checkTokenInfo() {
+  try {
+    const response = UrlFetchApp.fetch(GOOGLE_TOKENINFO_URL, { muteHttpExceptions: true });
+    Logger.log('reached Google: status=' + response.getResponseCode());
+    Logger.log('body=' + response.getContentText());
+  } catch (err) {
+    Logger.log('could not reach Google: ' + err);
+  }
+}
+
 /* ---------------- Routes ---------------- */
 
 function doGet(e) {
