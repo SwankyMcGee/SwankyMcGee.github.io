@@ -625,19 +625,29 @@ function usage_(days) {
   });
 }
 
-/* Rows for the last `days` days: from DailyRollup when it's populated,
-   else aggregated live from PageViews. */
+/* Rows for the last `days` days.
+
+   The nightly job can only fold *finished* days, so the rollup sheet
+   never has today in it. Reading the sheet alone would therefore miss
+   every visit made today — worse than useless, because it would look
+   like a quiet day. So: the sheet for everything up to yesterday, and
+   today read live (one day of rows, which is cheap).
+
+   Falls back to aggregating PageViews live for the whole window when
+   the sheet has nothing in it at all — right after installing the
+   trigger, or if a night's run failed. */
 function rollupRows_(days) {
   const sheet = ensureRollupSheet_();
+  const today = dayKey_(new Date());
   const cutoff = dayKey_(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
   const last = sheet.getLastRow();
 
+  const out = [];
   if (last >= 2) {
     const rows = sheet.getRange(2, 1, last - 1, ROLLUP_HEADER.length).getValues();
-    const out = [];
     for (let i = 0; i < rows.length; i++) {
       const day = String(rows[i][0] || '');
-      if (!day || day < cutoff) continue;
+      if (!day || day < cutoff || day >= today) continue;
       out.push({
         day: day,
         path: String(rows[i][1] || ''),
@@ -645,15 +655,19 @@ function rollupRows_(days) {
         seconds: Number(rows[i][3]) || 0
       });
     }
-    /* A rollup from a broken or half-written night would read as
-       "nobody visited" — only trust it if it covers today. */
-    const today = dayKey_(new Date());
-    if (out.some((r) => r.day === today) || days <= 1) {
-      return { rows: out, fromRollup: true };
-    }
   }
 
-  /* No usable rollup: do it live. Correct, just slower. */
+  const fromRollup = out.length > 0;
+
+  /* Today, live. */
+  pageViews_(1).forEach((r) => {
+    if (r.day !== today) return;
+    out.push({ day: r.day, path: r.path, views: r.views, seconds: r.seconds });
+  });
+
+  if (fromRollup) return { rows: out, fromRollup: true };
+
+  /* No rollup yet: do the whole window live. Correct, just slower. */
   const live = pageViews_(days).map((r) => ({
     day: r.day,
     path: r.path,
