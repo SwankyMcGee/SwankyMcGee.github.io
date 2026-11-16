@@ -1,0 +1,31 @@
+name: lint
+
+# Code.gs has no build step and no test runner — it is pasted into the
+# Apps Script editor by hand. That means a syntax error is only found
+# when someone opens the editor, which is exactly how a duplicate
+# `const days` in usage_ sat in the repo for two releases.
+#
+# `node --check` is the same V8 parser Apps Script uses. It parses and
+# stops, so the Apps Script globals (SpreadsheetApp, PropertiesService…)
+# are undefined but irrelevant.
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  codegs:
+    name: Code.gs parses
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Parse ideas-engine/Code.gs
+        run: |
+          cp ideas-engine/Code.gs /tmp/Code.js
+          node --check /tmp/Code.js
+          echo "Code.gs parses"

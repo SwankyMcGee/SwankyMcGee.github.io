@@ -678,7 +678,10 @@ function usage_(days) {
     perDay.push({ day: key, views: perDayMap[key] || 0 });
   }
 
-  const days = Object.keys(byPath).length
+  /* `dayList` rather than `days`: `days` is this function's parameter,
+     and a const of the same name in the same scope is a SyntaxError —
+     the whole script refuses to load, not just this function. */
+  const dayList = Object.keys(byPath).length
     ? rows.rows.map((r) => r.day).filter(Boolean).sort()
     : [];
 
@@ -694,8 +697,8 @@ function usage_(days) {
     pages: pageRows.slice(0, 30),
     unmapped: unmapped,
     perDay: perDay,
-    firstDay: days.length ? days[0] : '',
-    lastDay: days.length ? days[days.length - 1] : ''
+    firstDay: dayList.length ? dayList[0] : '',
+    lastDay: dayList.length ? dayList[dayList.length - 1] : ''
   });
 }
 
