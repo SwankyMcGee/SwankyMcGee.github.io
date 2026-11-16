@@ -51,8 +51,14 @@ const MANIFEST_TTL_SECONDS = 6 * 60 * 60;
 
 /* The oldest app build that understands this API. The app compares its
    own versionCode against this on launch and says "update required"
-   instead of misreading a newer shape. 0 = no gate yet. */
-const MIN_SUPPORTED_VERSION_CODE = 0;
+   instead of misreading a newer shape.
+
+   10 = v1.9, the first POST-only build. v5 refuses admin GETs, so an
+   older app is not merely out of date here — it cannot read anything at
+   all, and this number is how it learns that in one line instead of
+   staring at an empty inbox. Lower it back to 0 once nothing older is
+   in use. */
+const MIN_SUPPORTED_VERSION_CODE = 10;
 
 /* Anonymous usage pings — one row per report.
    Columns: Path | When | Seconds | Referrer. One path on one day goes
@@ -234,7 +240,16 @@ function doGet(e) {
     return json_({ ok: true, service: 'The Ideas Engine', api: API_VERSION });
   }
 
-  return json_({ ok: false, error: 'admin actions must use POST' });
+  /* An app older than v1.9 reads `api` and `minSupportedVersionCode`
+     out of this, exactly as it would out of action=state, and shows its
+     own "this build is out of date" card instead of an empty inbox. So
+     the refusal carries the same two fields as a successful state. */
+  return json_({
+    ok: false,
+    error: 'admin actions must use POST',
+    api: API_VERSION,
+    minSupportedVersionCode: MIN_SUPPORTED_VERSION_CODE
+  });
 }
 
 /* ?days=30 → 30, clamped to 1…365. Missing or nonsense means 90 —
