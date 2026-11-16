@@ -1,34 +1,63 @@
-# The Ideas Engine — admin access (one time, ~3 minutes)
+# The Ideas Engine — admin access (one time, ~5 minutes)
 
 The Toolshed Admin app (Android) is a thin client over this Apps Script.
 The public `Ideas` sheet is readable by anyone who has the spreadsheet
-link, so the admin surface has its **own key** and never touches the
+link, so the admin surface has its own way in and never touches the
 public submit path.
 
-You need: the spreadsheet from `SETUP.md` (The Learning Toolshed — Ideas),
-edit access to its Apps Script.
+As of API 6 that way in is **Google sign-in**: the app signs you in with
+Google, and the server checks the token and your email address. You do
+not type a key and nothing is stored on the phone. A key still works, for
+a deployment that has not moved over yet — see *The key, as a fallback*
+at the end.
 
-## 1. Pick a key
+You need: the spreadsheet from `SETUP.md` (The Learning Toolshed —
+Ideas), edit access to its Apps Script, and a Google Cloud project.
 
-A long random string. Generate one in PowerShell:
+## 1. Create the two OAuth clients
+
+In [console.cloud.google.com](https://console.cloud.google.com), pick (or
+create) a project, then **APIs & Services → OAuth consent screen →
+Credentials**. The consent screen must be configured first; for this app
+an *External* consent screen with your own address added as a **test
+user** is enough.
+
+**a) Web application client.** Create credentials → **OAuth client ID →
+Web application**. No redirect URIs are needed. Copy the **Client ID**
+(it ends in `.apps.googleusercontent.com`). This is the string the script
+calls `ANDROID_OAUTH_CLIENT_ID`, and the same string the app passes as
+`serverClientId`.
+
+**b) Android client.** Create credentials → **OAuth client ID →
+Android**. Package name `com.learningtoolshed.admin`, and the SHA-1 of
+the signing certificate:
 
 ```powershell
-[guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+& "C:\Android\Sdk\build-tools\35.0.0\apksigner.bat" verify --print-certs `
+  "C:\Users\Tanner\Desktop\Toolshed App\app-release-signed.apk"
 ```
 
-## 2. Put it in the script
+Right now that is `8c46feb16a8bb6735592107365609dd92a84e1e1`. The
+Android client is what Google uses to recognise the app; the ID token it
+produces is still addressed to the **web** client, which is what makes
+the check below possible.
 
-Store it as a **Script Property**, not in the code:
+## 2. Put both in the script
 
-1. Open the sheet → **Extensions → Apps Script**.
-2. **Project Settings** (gear) → **Script Properties** → **Add property**.
-3. Name `ADMIN_KEY`, value your string. **Save script properties**.
+**Project Settings** (gear) → **Script Properties** → **Add property**,
+twice:
 
-The code reads the property first and only falls back to the
-`ADMIN_KEY` constant in `Code.gs`, so a key you pasted into the file
-still works — but the property is the better home. A key in source is a
-key that gets pasted into a repo, and this script's file already lives
-in one. Rotating then means editing a property instead of code.
+| Property | Value |
+|---|---|
+| `ANDROID_OAUTH_CLIENT_ID` | the web client's ID from step 1a |
+| `ADMIN_EMAILS` | comma-separated addresses allowed in |
+
+`ADMIN_EMAILS` tolerates spaces and semicolons. It is matched
+case-insensitively and compared exactly — no wildcards, no domains.
+
+**Save script properties.** Until both are set, the Google door stays
+shut and only the key works, which is what makes this safe to deploy in
+any order.
 
 ## 3. Redeploy
 
@@ -37,57 +66,81 @@ in one. Rotating then means editing a property instead of code.
 The `/exec` URL stays the same, so `IDEAS_ENDPOINT` in `site.js` does not
 change and the public form keeps working.
 
+The first Google-signed request asks for one extra authorisation —
+`UrlFetchApp`, used to verify tokens with Google. Approve it and nothing
+else will ask.
+
 ## 4. Test it
 
-Admin calls are **POST only** — a key in a URL is a key in history, in
-proxy logs, and in the Referer header of anything that URL touches. A
-plain browser visit still answers the "is it alive" check:
+Admin calls are **POST only** — a credential in a URL is a credential in
+history, in proxy logs, and in the Referer header of anything that URL
+touches. A plain browser visit still answers the "is it alive" check:
 
-- `…/exec` → `{"ok":true,"service":"The Ideas Engine","api":5}`
+- `…/exec` → `{"ok":true,"service":"The Ideas Engine","api":6}`
 
-Everything else needs a POST. In PowerShell:
+Everything else needs a POST:
 
 ```powershell
 $exec = 'https://script.google.com/macros/s/AKfy…/exec'
-$key  = 'YOUR_KEY'
 
+# what the server will accept
+Invoke-RestMethod -Method Post -Uri $exec -Body @{ action = 'state' }
+# {ok:false, error:'no credential'}
+
+# a key still works, if one is configured
 Invoke-RestMethod -Method Post -Uri $exec -Body @{ key = 'WRONG'; action = 'ideas' }
-# {ok, error} → forbidden
+# {ok:false, error:'forbidden'}
 
-Invoke-RestMethod -Method Post -Uri $exec -Body @{ key = $key; action = 'state' }
-# ok, admin, api, minSupportedVersionCode, manifestVersion
-
-Invoke-RestMethod -Method Post -Uri $exec -Body @{ key = $key; action = 'ideas' }
-# ok, ideas: [ … ]
+# a real Google token, from the app (or from OAuth Playground with the
+# web client as the audience)
+Invoke-RestMethod -Method Post -Uri $exec -Body @{ idToken = $token; action = 'state' }
+# ok, admin, api, minSupportedVersionCode, auth, email, manifestVersion
 ```
+
+The failure reasons are deliberate and distinct, because they mean
+different things to the person holding the phone:
+
+| Response | What it means |
+|---|---|
+| `forbidden` | wrong or missing key |
+| `no credential` | neither `idToken` nor `key` was sent |
+| `bad token` | malformed, wrong audience, wrong issuer, or unverified email |
+| `token expired` | the ID token has passed its `exp`; sign in again |
+| `not allowed` | valid token, but the email is not in `ADMIN_EMAILS` |
+| `google sign-in not configured` | a property is missing on the server |
+| `token check failed` | Google could not be reached |
 
 `GET` with `action` or `key` is refused by name:
 `{"ok":false,"error":"admin actions must use POST"}`. That answer is what
 an app older than v1.9 gets — it's a clear failure rather than
 `forbidden`, which is what makes the upgrade obvious.
 
-## 5. Enter it in the app
+## 5. Sign in from the app
 
-Toolshed Admin → **Settings** (gear) → paste the same `/exec` URL and
-the key. The app keeps them in its own storage; nothing is shared.
+Toolshed Admin → **Settings** (gear) → **Sign in with Google**. Pick the
+address that is in `ADMIN_EMAILS`. The `/exec` URL is already built in;
+there is no key field to fill in and no key stored on the device.
 
 ## What the admin API can do
 
-Every action is a form-encoded **POST** — `key`, `action`, then fields.
-The key is never in the URL.
+Every action is a form-encoded **POST** — `idToken` (or `key`),
+`action`, then fields. The credential is never in the URL.
 
 | Action | Fields | Result |
 |---|---|---|
-| `state` | `key` | `{ ok, admin, api, minSupportedVersionCode }` — the app's connection test |
-| `ideas` | `key` | `{ ok, ideas: [...] }` — everything, newest first |
-| `changes` | `key`, `since` (epoch ms) | `{ ok, ideas: [...], serverTime }` — only rows touched since |
-| `read` | `key`, `ids` (comma-separated row numbers) | `{ ok, changed }` |
-| `status` | `key`, `id`, `status`, `note` (optional) | `{ ok }` |
-| `reply` | `key`, `id`, `body` | `{ ok, reply }` — also appends to `Replies` |
-| `replies` | `key`, `id` | `{ ok, replies: [...] }` |
-| `pageviews` | `key`, `days` (optional) | `{ ok, rows: [...] }` — raw rows, grouped by path and day |
-| `usage` | `key`, `days` (optional) | `{ ok, tools, resources, pages, unmapped, perDay, ... }` — already rolled up |
-| `manifest` | `key` | `{ ok, manifest }` — the site's registry (`site-manifest.json`) |
+| `state` | `idToken`/`key` | `{ ok, admin, api, minSupportedVersionCode, auth, email }` — the connection test |
+| `ideas` | `idToken`/`key` | `{ ok, ideas: [...] }` — everything, newest first |
+| `changes` | `idToken`/`key`, `since` (epoch ms) | `{ ok, ideas: [...], serverTime }` — only rows touched since |
+| `read` | `idToken`/`key`, `ids` (comma-separated row numbers) | `{ ok, changed }` |
+| `status` | `idToken`/`key`, `id`, `status`, `note` (optional) | `{ ok }` |
+| `reply` | `idToken`/`key`, `id`, `body` | `{ ok, reply }` — also appends to `Replies` |
+| `replies` | `idToken`/`key`, `id` | `{ ok, replies: [...] }` |
+| `pageviews` | `idToken`/`key`, `days` (optional) | `{ ok, rows: [...] }` — raw rows, grouped by path and day |
+| `usage` | `idToken`/`key`, `days` (optional) | `{ ok, tools, resources, pages, unmapped, perDay, ... }` — already rolled up |
+| `manifest` | `idToken`/`key` | `{ ok, manifest }` — the site's registry (`site-manifest.json`) |
+
+`state` also returns `auth: { google, key }` — what this deployment will
+accept — so the app can offer Google sign-in only where it works.
 
 Idea shape:
 
@@ -151,7 +204,8 @@ identifies a person.
 - **Rate limit (bot trap):** one path on one day stops being recorded
   after **200 pings** or **2 hours** of reported time; the rest are
   dropped with a fake `ok`, exactly like the form's honeypot.
-- **Read (admin):** `POST action=pageviews` with `key`, optional `days` →
+- **Read (admin):** `POST action=pageviews` with `idToken`, optional
+  `days` →
 
 ```json
 { "ok": true, "rows": [
@@ -181,44 +235,58 @@ existed stay where they are and keep working (their
 `Read`/`Status`/`Note`/`Updated` cells simply read as blank, which the
 API treats as unread / new).
 
+## The key, as a fallback
+
+If `ADMIN_KEY` is a Script Property it is accepted exactly as before, so
+a v1.9–v1.12 build keeps working and a deployment can move over at its
+own pace. Generate one with:
+
+```powershell
+[guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+```
+
+and store it under `ADMIN_KEY` in **Project Settings → Script
+Properties**. The `ADMIN_KEY` constant in `Code.gs` is `''` on purpose —
+this file lives in a repo.
+
 ## Notes
 
-- **The key travels in the POST body, over TLS, and stops there.** It is
-  not a login and there is no per-user identity: anyone with the key can
-  read staff names and emails from the sheet. Treat it like a house key.
-- **Keep it out of URLs.** v4 accepted `GET ?key=…`, which put the key in
-  browser history, proxy logs and the Referer header. v5 refuses admin
-  GETs. If you are pasting a command to test the API, paste a POST.
-- **Store it as a Script Property** (step 2), not in `Code.gs`. The repo
-  copy of this file has `ADMIN_KEY = ''` on purpose.
-- **Rotate it** when a device is lost, when someone leaves, or when the
-  key has been anywhere it shouldn't: Project Settings → Script
-  Properties, replace `ADMIN_KEY`, save, then update the app's Settings
-  with the new one. There is no other place to change — that is the
-  point of the property.
-- If the key is empty, every admin call gets `forbidden`. That is the
-  safe default on purpose.
-- To revoke without issuing a new one: clear `ADMIN_KEY`, save. Every
-  admin call gets `forbidden` until it's set again.
-- The public form is unchanged: no key, no admin columns written by
-  submitters (they get `Read = no`, `Status = new`).
+- **Nobody types a secret.** The app holds a Google session and a
+  short-lived ID token; the server verifies each one against Google and
+  caches the answer by token digest, so a page of requests is one call
+  out. The cache entry dies with the token.
+- **The allowlist is the whole of the security.** A Google token proves
+  who signed in; `ADMIN_EMAILS` is what decides whether that person may
+  read staff names and emails. Keep it to real addresses, and keep it
+  short.
+- **A lost phone is fixed in the sheet, not in the app.** Remove the
+  address from `ADMIN_EMAILS`, save. Their next request gets
+  `not allowed`. Google sign-out on the device is not enough on its own —
+  the allowlist is.
+- **Rotate the client ID** only by making a new web client, putting its
+  ID in the property and in a new app build. Tokens minted for the old
+  audience stop verifying at once.
+- **Keep credentials out of URLs.** v4 accepted `GET ?key=…`; v5
+  refuses admin GETs, and v6 does the same for `idToken`.
+- **The public form is unchanged:** no credential, no admin columns
+  written by submitters (they get `Read = no`, `Status = new`).
 
-## Deploying v5 (one time)
+## Deploying v6 (one time)
 
-v5 moves admin reads from GET to POST, and the app and the backend have
-to move together. **Backend first, then the app** — the other order does
-not work, because v4 only accepted POST for `read`, `status` and
-`reply`; every read (`state`, `ideas`, `usage`, …) was GET-only, so an
-app that only POSTs gets `unknown action` from a v4 backend.
+v6 adds Google sign-in. The backend can go first on its own — a v5
+backend receiving an `idToken` sees no `key`, treats the call as a public
+form submission and answers `{"ok":true}`, which looks like a silent
+success; an app older than v1.9 is refused by name.
 
-1. **Redeploy this script** (Manage deployments → edit → New version →
-   Deploy). `/exec` does not change, so `site.js` and the public form
-   are untouched.
-2. **Install app v1.9.** Until you do, the installed v1.8 gets
-   `admin actions must use POST` on every read and its inbox shows an
-   error. That is the expected state for the few minutes in between,
-   not a fault: the update banner comes from GitHub, not from this
-   script, so v1.8 still offers v1.9 and installs it normally.
+1. **Set the two Script Properties** (step 2) and **redeploy this
+   script** (step 3). `/exec` does not change, so `site.js` and the
+   public form are untouched. The key still works until you blank it.
+2. **Install the app build that speaks v6.** Until then the installed
+   build keeps using the key, which is why `ADMIN_KEY` should stay set
+   for now.
+3. **Only once every device has moved:** clear `ADMIN_KEY`, save. Any
+   remaining old build then gets `forbidden` — which is the correct
+   answer, and the reason to do it last.
 
-Once v1.9 is on, everything reads normally again and nothing about the
-cutover needs repeating.
+`MIN_SUPPORTED_VERSION_CODE` is unchanged at 10: v6 is additive, so
+nothing that worked before stops working.

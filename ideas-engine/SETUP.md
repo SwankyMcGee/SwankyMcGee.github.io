@@ -46,7 +46,7 @@ and ship it.
    **Send idea →** → the "Gulp!" confirmation appears, and a row shows
    up in the sheet's **Ideas** tab with type, timestamp, idea, name,
    and the tool.
-2. Visit the `/exec` URL directly → `{"ok":true,"service":"The Ideas Engine","api":5}`.
+2. Visit the `/exec` URL directly → `{"ok":true,"service":"The Ideas Engine","api":6}`.
 
 ## Notes
 

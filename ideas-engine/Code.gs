@@ -7,16 +7,18 @@
     Two surfaces, both behind the same /exec URL:
 
     PUBLIC  doPost               — ideas.html posts here, no key
-    ADMIN   doPost               — the Toolshed Admin app, needs
-            key=<ADMIN_KEY>; see ADMIN_KEY below and
-            ideas-engine/ADMIN.md.
+    ADMIN   doPost               — the Toolshed Admin app, signed in
+             with Google: idToken=<a Google ID token>. The server
+             verifies it and checks the email against an allowlist
+             (see GOOGLE_AUTH below and ADMIN.md). key=<ADMIN_KEY>
+             still works, for a deployment that has not moved over.
 
-    Admin traffic is POST-only, and the key travels in the body. A key in
-    a query string is a key in browser history, in proxy logs, and in the
-    Referer header of every URL it touches — so v5 refuses GET on admin
-    actions outright. See doGet.
+    Admin traffic is POST-only, and the credential travels in the body.
+    A key in a query string is a key in browser history, in proxy logs,
+    and in the Referer header of every URL it touches — so v5 refuses
+    GET on admin actions outright. See doGet.
 
-    Admin actions (POST, form-encoded: key, action, then fields):
+    Admin actions (POST, form-encoded: idToken or key, action, fields):
           action=state                  -> { ok, admin, api, minSupportedVersionCode }
           action=ideas                  -> { ok, ideas: [ … ] }
           action=changes   since=       -> { ok, ideas: [ … ], serverTime }
@@ -28,10 +30,11 @@
           action=status    id, status, note -> { ok }
           action=reply     id, body     -> { ok, reply }
 
-    Public (no key):
+    Public (no credential):
       POST action=track               -> { ok }   path, seconds, referrer
       — the site's anonymous usage ping; see ADMIN.md.
-      Anything else POSTed without a key is ideas.html submitting an idea.
+      Anything else POSTed without a credential is ideas.html
+      submitting an idea.
     ============================================================ */
 
 const SHEET_NAME = 'Ideas';
@@ -39,8 +42,9 @@ const REPLIES_SHEET = 'Replies';
 const VIEWS_SHEET = 'PageViews';
 const ROLLUP_SHEET = 'DailyRollup';
 const MIN_MILLISECONDS = 3000;   // faster than this is a bot, not a teacher
-/* API level. 5 = admin traffic is POST-only (v4 was GET for reads). */
-const API_VERSION = 5;
+/* API level. 5 = admin traffic is POST-only (v4 was GET for reads).
+   6 = admin calls may present a Google ID token instead of the key. */
+const API_VERSION = 6;
 
 /* The site's registry — every tool, page and resource page. Served to
    the admin app (action=manifest) so a new tool on the site reaches the
@@ -107,12 +111,76 @@ function adminKey_() {
   return String(fromProps || ADMIN_KEY || '').trim();
 }
 
-/* One public POST door. A key means it's an admin call (the Toolshed
-   Admin app); anything else is ideas.html submitting an idea. */
+/* ---------------- Google sign-in (API 6) ----------------
+
+   The point of this: nobody types or stores an admin key. The app signs
+   the user in with Google, gets a short-lived ID token, and posts that
+   instead. This script verifies the token against Google and then checks
+   the email against an allowlist.
+
+   Two Script Properties make it work:
+
+     ANDROID_OAUTH_CLIENT_ID  — the *Web* OAuth client's ID, from Google
+       Cloud. Same string the app passes as serverClientId. A token is
+       only accepted if its audience is exactly this.
+     ADMIN_EMAILS             — comma-separated addresses allowed in.
+       Spaces and semicolons are tolerated.
+
+   With either one missing, the Google door stays shut and only the key
+   works — which is how a deployment migrates: set the properties, ship
+   the app, then blank ADMIN_KEY once nothing uses it.
+
+   Tokens are verified by Google over HTTPS, then cached by digest for
+   as long as the token is valid (minus a safety margin), so a page of
+   requests from one session is one call out. */
+const GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
+const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
+const TOKEN_CACHE_SAFETY_SECONDS = 120;   // re-verify this long before expiry
+const TOKEN_CACHE_KEY_PREFIX = 'gauth:';
+
+function adminClientId_() {
+  const fromProps = PropertiesService.getScriptProperties().getProperty('ANDROID_OAUTH_CLIENT_ID');
+  return String(fromProps || '').trim();
+}
+
+function adminEmails_() {
+  const fromProps = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAILS');
+  return String(fromProps || '')
+    .split(/[,;\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/* What the server accepts, for the app's sign-in screen: it should not
+   offer Google sign-in to a backend that has not been configured for it.
+   Served without a credential (action=authconfig) because the app needs
+   it before it has one. */
+function adminAuth_() {
+  return {
+    google: !!adminClientId_() && adminEmails_().length > 0,
+    key: !!adminKey_(),
+    clientId: adminClientId_()
+  };
+}
+
+function authConfig_() {
+  return json_(adminAuth_());
+}
+
+/* One public POST door. A key or an ID token means it's an admin call
+   (the Toolshed Admin app); anything else is ideas.html submitting an
+   idea. The token is checked first when both are present: it is the
+   stronger of the two, and an app mid-migration should not be judged on
+   the half it is leaving behind. */
 function doPost(e) {
   const data = (e && e.parameter) || {};
   try {
-    if (data.key) return admin_(data);
+    /* Public by design, and needed before sign-in: the app has to know
+       which Google client to ask for, and it cannot ask for that behind
+       a door it has not opened yet. A client ID is not a secret — every
+       app that uses it carries it — so this answers without a credential. */
+    if (data.action === 'authconfig') return authConfig_();
+    if (data.idToken || data.key) return admin_(data);
     if (data.action === 'track') return trackPageView_(data);
     return submitIdea_(data);
   } catch (err) {
@@ -169,7 +237,8 @@ function submitIdea_(data) {
    cannot tell "wrong key" from "unknown action" from "bad id" by
    status code. */
 function admin_(data) {
-  if (!isAdmin_(data.key)) return deny();
+  const identity = adminIdentity_(data);
+  if (!identity.ok) return json_({ ok: false, error: identity.error });
 
   const action = data.action;
   if (action === 'state') {
@@ -178,6 +247,8 @@ function admin_(data) {
       admin: true,
       api: API_VERSION,
       minSupportedVersionCode: MIN_SUPPORTED_VERSION_CODE,
+      auth: adminAuth_(),
+      email: identity.email,
       manifestVersion: (loadManifest_() || {}).manifestVersion || 0
     });
   }
@@ -882,6 +953,91 @@ function isAdmin_(key) {
   return diff === 0;
 }
 
+/* Which credential came in, and whether it holds. The answer is
+   deliberately small: an ok flag, the email when there is one, and a
+   reason string that says why not. The app shows that reason verbatim,
+   because "token expired" and "not allowed" are different instructions
+   to the person holding the phone, and one word for both ("forbidden")
+   is the thing this replaced. */
+function adminIdentity_(data) {
+  const token = String(data.idToken || '');
+  if (token) return verifyIdToken_(token);
+  if (data.key) {
+    return isAdmin_(data.key)
+      ? { ok: true, email: '' }
+      : { ok: false, error: 'forbidden' };
+  }
+  return { ok: false, error: 'no credential' };
+}
+
+/* Google's tokeninfo endpoint is the whole verifier: it checks the
+   signature for us and hands back the claims. What it does not do is
+   check that the token was minted for *this* backend, so `aud` is
+   compared here — an ID token for any other Google client would
+   otherwise be a valid-looking credential. */
+function verifyIdToken_(token) {
+  const clientId = adminClientId_();
+  if (!clientId) return { ok: false, error: 'google sign-in not configured' };
+  if (!adminEmails_().length) return { ok: false, error: 'google sign-in not configured' };
+
+  /* One call per token, not per request. The cache key is a digest of
+     the token, so a token is never stored in the cache in a form that
+     could be read back out of it. */
+  const cacheKey = TOKEN_CACHE_KEY_PREFIX + tokenDigest_(token);
+  const cached = CacheService.getScriptCache().get(cacheKey);
+  if (cached) return { ok: true, email: cached };
+
+  let claims;
+  try {
+    const response = UrlFetchApp.fetch(GOOGLE_TOKENINFO_URL, {
+      method: 'post',
+      payload: { id_token: token },
+      muteHttpExceptions: true
+    });
+    /* A 400 here is Google saying the token is malformed, expired or
+       signed by the wrong key — not a reason to fail the whole call. */
+    claims = JSON.parse(response.getContentText());
+  } catch (err) {
+    return { ok: false, error: 'token check failed' };
+  }
+  if (!claims || claims.error) {
+    const description = String(claims && claims.error_description || '');
+    return { ok: false, error: /expired/i.test(description) ? 'token expired' : 'bad token' };
+  }
+  if (String(claims.aud || '') !== clientId) return { ok: false, error: 'bad token' };
+  if (GOOGLE_ISSUERS.indexOf(String(claims.iss || '')) < 0) return { ok: false, error: 'bad token' };
+  if (String(claims.email_verified) !== 'true') return { ok: false, error: 'bad token' };
+  if (Number(claims.exp || 0) * 1000 <= Date.now()) return { ok: false, error: 'token expired' };
+
+  const email = String(claims.email || '').trim().toLowerCase();
+  if (!email) return { ok: false, error: 'bad token' };
+  if (!isAllowedEmail_(email)) return { ok: false, error: 'not allowed' };
+
+  const remaining = Math.floor(Number(claims.exp) || 0) - Math.floor(Date.now() / 1000);
+  const ttl = Math.max(60, Math.min(3000, remaining - TOKEN_CACHE_SAFETY_SECONDS));
+  CacheService.getScriptCache().put(cacheKey, email, ttl);
+
+  return { ok: true, email: email };
+}
+
+function isAllowedEmail_(email) {
+  return adminEmails_().indexOf(email) >= 0;
+}
+
+function tokenDigest_(token) {
+  const bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    token,
+    Utilities.Charset.UTF_8
+  );
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = (bytes[i] + 256) % 256;
+    hex += (byte < 16 ? '0' : '') + byte.toString(16);
+  }
+  return hex;
+}
+
 function normaliseStatus_(value) {
   const v = String(value || '').toLowerCase();
   return STATUS_VALUES.indexOf(v) >= 0 ? v : 'new';
@@ -925,8 +1081,4 @@ function ok() {
 
 function fail() {
   return json_({ ok: false });
-}
-
-function deny() {
-  return json_({ ok: false, error: 'forbidden' });
 }
