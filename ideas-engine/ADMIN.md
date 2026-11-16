@@ -42,22 +42,31 @@ Android client is what Google uses to recognise the app; the ID token it
 produces is still addressed to the **web** client, which is what makes
 the check below possible.
 
-## 2. Put both in the script
+## 2. Put both in the script (optional)
 
-**Project Settings** (gear) → **Script Properties** → **Add property**,
-twice:
+`Code.gs` already carries the client ID and the allowlist as constants,
+so a fresh deployment answers `google: true` with no setup at all. The
+Script Properties exist for the two things a file cannot hold:
 
-| Property | Value |
-|---|---|
-| `ANDROID_OAUTH_CLIENT_ID` | the web client's ID from step 1a |
-| `ADMIN_EMAILS` | comma-separated addresses allowed in |
+**Project Settings** (gear) → **Script Properties** → **Add property**:
 
-`ADMIN_EMAILS` tolerates spaces and semicolons. It is matched
-case-insensitively and compared exactly — no wildcards, no domains.
+| Property | Overrides | Why you would |
+|---|---|---|
+| `OAUTH_CLIENT_ID` | the web client ID in `Code.gs` | rotating the client without a redeploy |
+| `ADMIN_EMAILS` | the allowlist in `Code.gs` | taking someone off the list without a redeploy |
+| `ADMIN_KEY` | — | keeping the old door open, then closing it |
 
-**Save script properties.** Until both are set, the Google door stays
-shut and only the key works, which is what makes this safe to deploy in
-any order.
+`ANDROID_OAUTH_CLIENT_ID` is the old name for `OAUTH_CLIENT_ID`; it is
+still read, so a deployment that already set it does not break. The new
+name wins when both are present.
+
+`ADMIN_EMAILS` tolerates spaces and semicolons, and is matched
+case-insensitively and exactly — no wildcards, no domains.
+
+The one value that must **not** be written into `Code.gs` is
+`ADMIN_KEY`. That file lives in a public repo, so the key stays a
+property; the client ID and the allowlist are both public information
+and are safe to keep in source.
 
 ## 3. Redeploy
 
@@ -278,9 +287,10 @@ backend receiving an `idToken` sees no `key`, treats the call as a public
 form submission and answers `{"ok":true}`, which looks like a silent
 success; an app older than v1.9 is refused by name.
 
-1. **Set the two Script Properties** (step 2) and **redeploy this
-   script** (step 3). `/exec` does not change, so `site.js` and the
-   public form are untouched. The key still works until you blank it.
+1. **Redeploy this script** (step 3). `/exec` does not change, so
+   `site.js` and the public form are untouched. Add the Script
+   Properties only if you want to override the defaults in the file
+   (step 2); the key still works until you blank it.
 2. **Install the app build that speaks v6.** Until then the installed
    build keeps using the key, which is why `ADMIN_KEY` should stay set
    for now.

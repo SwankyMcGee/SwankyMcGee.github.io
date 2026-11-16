@@ -118,34 +118,74 @@ function adminKey_() {
    instead. This script verifies the token against Google and then checks
    the email against an allowlist.
 
-   Two Script Properties make it work:
+    Two Script Properties *can* override the constants below:
 
-     ANDROID_OAUTH_CLIENT_ID  — the *Web* OAuth client's ID, from Google
-       Cloud. Same string the app passes as serverClientId. A token is
-       only accepted if its audience is exactly this.
-     ADMIN_EMAILS             — comma-separated addresses allowed in.
-       Spaces and semicolons are tolerated.
+      OAUTH_CLIENT_ID  — the *Web* OAuth client's ID, from Google
+        Cloud. Same string the app passes as serverClientId. A token is
+        only accepted if its audience is exactly this.
+        (ANDROID_OAUTH_CLIENT_ID is the old name for the same thing; it
+        is still read, so an existing deployment does not break.)
+      ADMIN_EMAILS     — comma-separated addresses allowed in. Spaces
+        and semicolons are tolerated.
 
-   With either one missing, the Google door stays shut and only the key
-   works — which is how a deployment migrates: set the properties, ship
-   the app, then blank ADMIN_KEY once nothing uses it.
+    Both have a default in this file, so a fresh deployment answers
+    `google: true` with no setup at all. The properties exist for the
+    cases the file cannot hold: rotating the client, or taking someone
+    off the list without a redeploy. Clearing ADMIN_KEY is what finally
+    shuts the old door — that part is still a property, because it is
+    the one value that must never be in a repo.
 
-   Tokens are verified by Google over HTTPS, then cached by digest for
-   as long as the token is valid (minus a safety margin), so a page of
-   requests from one session is one call out. */
+    Tokens are verified by Google over HTTPS, then cached by digest for
+    as long as the token is valid (minus a safety margin), so a page of
+    requests from one session is one call out. */
 const GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
 const GOOGLE_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
 const TOKEN_CACHE_SAFETY_SECONDS = 120;   // re-verify this long before expiry
 const TOKEN_CACHE_KEY_PREFIX = 'gauth:';
 
+/* The web OAuth client this deployment signs in with.
+
+   Public by design: it sits inside every APK that uses it, and Google
+   treats it only as the *audience* of the token — never as a secret. The
+   Script Property wins; the constant is the default, so a fresh
+   deployment works without a trip to Project Settings.
+
+   The property is read under both names. ANDROID_OAUTH_CLIENT_ID is the
+   older one, kept because that is what ADMIN.md has said since v6 and
+   because a deployment that already set it must not break.
+
+   The Android client is not used here at all. Google matches that one on
+   the device — against the app's package name and signing SHA-1 — before
+   a token exists. Ours is registered as:
+
+     package  com.learningtoolshed.admin
+     SHA-1    8c46feb16a8bb6735592107365609dd92a84e1e1
+     client   1007296555959-rhf4p4s2l3b4l97fh4bmuenap1p8t2nk…
+
+   Getting these two the wrong way round is the one easy mistake here:
+   the *web* client's ID goes in the property, and a token's `aud` is
+   what it is compared against. */
+const OAUTH_CLIENT_ID =
+  '1007296555959-chqcshefr02pboaf1rebsnbaunmf1nbo.apps.googleusercontent.com';
+
+/* Who may read the sheet. Not a secret either — it is a list of names —
+   but it is the whole of the security, so it stays short and literal:
+   no wildcards, no domains, matched case-insensitively.
+
+   The Script Property wins, for the same reason ADMIN_KEY's does:
+   removing someone is an edit to a property, not a redeploy. */
+const ADMIN_EMAILS = 'tjmcclure@mpsaz.org, videogamebrain@gmail.com';
+
 function adminClientId_() {
-  const fromProps = PropertiesService.getScriptProperties().getProperty('ANDROID_OAUTH_CLIENT_ID');
-  return String(fromProps || '').trim();
+  const props = PropertiesService.getScriptProperties();
+  const fromProps = props.getProperty('OAUTH_CLIENT_ID') ||
+    props.getProperty('ANDROID_OAUTH_CLIENT_ID');
+  return String(fromProps || OAUTH_CLIENT_ID || '').trim();
 }
 
 function adminEmails_() {
   const fromProps = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAILS');
-  return String(fromProps || '')
+  return String(fromProps || ADMIN_EMAILS || '')
     .split(/[,;\s]+/)
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
