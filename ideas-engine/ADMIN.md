@@ -98,6 +98,43 @@ The first Google-signed request asks for one extra authorisation —
 `UrlFetchApp`, used to verify tokens with Google. Approve it and nothing
 else will ask.
 
+### If every sign-in ends in `token check failed`
+
+The deployment cannot make outbound calls, so `verifyIdToken_` throws
+before it reaches Google. Redeploying does **not** fix it: a deployment
+runs with whatever the owner granted the script the last time a function
+was run from the editor, and adding `UrlFetchApp` to the code does not
+grant it.
+
+The fix is to run one function that uses it, in the editor, once:
+
+```js
+function checkTokenInfo() {
+  try {
+    const r = UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo', {
+      muteHttpExceptions: true
+    });
+    Logger.log('reached Google: status=' + r.getResponseCode());
+  } catch (err) {
+    Logger.log('could not reach Google: ' + err);
+  }
+}
+```
+
+Run `checkTokenInfo` and approve the consent screen. `status=400` in the
+log is the correct answer — it means the call got through and Google
+rejected the empty token.
+
+Two things to check first, because both produce the same message:
+
+- **Execute as** must be `Me`, not "User accessing the web app". A
+  deployment that runs as the visitor has no grants at all.
+- `appsscript.json` must not pin an `oauthScopes` list that leaves the
+  scope out. With no `oauthScopes` key, the scopes are inferred and the
+  run above is enough.
+
+Delete the function once the deployment answers; the grant stays.
+
 ## 4. Test it
 
 Admin calls are **POST only** — a credential in a URL is a credential in

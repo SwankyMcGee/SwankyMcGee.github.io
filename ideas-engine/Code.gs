@@ -229,49 +229,6 @@ function verifyIdToken_(token) {
   return { ok: true, email: email };
 }
 
-/* Manual check, run from the editor: can this script reach Google at
-   all? Sign-in fails with "token check failed" when the answer is no,
-   and the reason is in the log — either the script has never been
-   granted the external-request scope, or the deployment runs as the
-    person visiting instead of as the owner.
-
-    Delete this once the deployment is answering. */
-function checkTokenInfo() {
-  try {
-    const response = UrlFetchApp.fetch(GOOGLE_TOKENINFO_URL, { muteHttpExceptions: true });
-    Logger.log('reached Google: status=' + response.getResponseCode());
-    Logger.log('body=' + response.getContentText());
-  } catch (err) {
-    Logger.log('could not reach Google: ' + err);
-  }
-}
-
-/* Temporary: what the tokeninfo fetch actually did, and what the
-   server has configured. Reached at action=diag; delete both. */
-function diag_() {
-  const out = {
-    clientId: adminClientId_(),
-    configured: adminConfigured_(),
-    plain: adminEmails_().length,
-    hashes: adminEmailHashes_().length
-  };
-  const started = Date.now();
-  try {
-    const response = UrlFetchApp.fetch(GOOGLE_TOKENINFO_URL, {
-      method: 'post',
-      payload: { id_token: 'aaa.bbb.ccc' },
-      muteHttpExceptions: true
-    });
-    out.status = response.getResponseCode();
-    out.ms = Date.now() - started;
-    out.body = String(response.getContentText()).substring(0, 300);
-  } catch (err) {
-    out.error = String(err);
-    out.ms = Date.now() - started;
-  }
-  return out;
-}
-
 /* ---------------- Routes ---------------- */
 
 function doGet(e) {
@@ -302,10 +259,6 @@ function doPost(e) {
        Google client to ask for, and it cannot ask for that behind a
        door it has not opened yet. A client ID is not a secret. */
     if (data.action === 'authconfig') return json_(adminAuth_());
-
-    /* Temporary: answers what the tokeninfo fetch actually did, so a
-       sign-in failure can be read without the editor log. Delete. */
-    if (data.action === 'diag') return json_(diag_());
 
     /* The token is checked before the key is even considered: it is the
        stronger of the two, and an app mid-migration should not be
