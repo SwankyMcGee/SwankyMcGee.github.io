@@ -53,20 +53,45 @@ Script Properties exist for the two things a file cannot hold:
 | Property | Overrides | Why you would |
 |---|---|---|
 | `OAUTH_CLIENT_ID` | the web client ID in `Code.gs` | rotating the client without a redeploy |
-| `ADMIN_EMAILS` | the allowlist in `Code.gs` | taking someone off the list without a redeploy |
+| `ADMIN_EMAILS` | the hashed allowlist in `Code.gs` | changing the list without a redeploy, in a hurry |
 | `ADMIN_KEY` | — | keeping the old door open, then closing it |
 
 `ANDROID_OAUTH_CLIENT_ID` is the old name for `OAUTH_CLIENT_ID`; it is
 still read, so a deployment that already set it does not break. The new
 name wins when both are present.
 
-`ADMIN_EMAILS` tolerates spaces and semicolons, and is matched
-case-insensitively and exactly — no wildcards, no domains.
-
 The one value that must **not** be written into `Code.gs` is
 `ADMIN_KEY`. That file lives in a public repo, so the key stays a
-property; the client ID and the allowlist are both public information
-and are safe to keep in source.
+property. The client ID is public information and the allowlist is
+hashed (below), so neither is a risk in source.
+
+### The allowlist is a list of digests
+
+The addresses are not in `Code.gs`, because `Code.gs` is in a public
+repo. A token still arrives with the address in the clear — Google put
+it there — but the file only ever holds SHA-256 digests of the addresses
+that are allowed. A reader of the repo learns nothing from it: no staff
+addresses, no personal Gmail, nothing to phish.
+
+To **add** someone, run this once in the Apps Script editor and paste
+the digest it prints into `ADMIN_EMAIL_HASHES`:
+
+```js
+hashEmail_('someone@school.org')
+```
+
+To **remove** someone, delete their digest. Either way it is an edit to
+a constant and a new version of the script; the `/exec` URL does not
+change and nothing on the site or in the app has to be touched.
+
+To **change it without editing code**, set the `ADMIN_EMAILS` Script
+Property to a comma-separated list of addresses. It wins over the
+digests — that is the break-glass path, and the addresses still stay out
+of the repo. (Clear the property to go back to the digests.)
+
+Both forms are matched case-insensitively and exactly: no wildcards, no
+domains. A trailing space or a different case is fine; a different
+address is not.
 
 ## 3. Redeploy
 
@@ -115,8 +140,8 @@ different things to the person holding the phone:
 | `no credential` | neither `idToken` nor `key` was sent |
 | `bad token` | malformed, wrong audience, wrong issuer, or unverified email |
 | `token expired` | the ID token has passed its `exp`; sign in again |
-| `not allowed` | valid token, but the email is not in `ADMIN_EMAILS` |
-| `google sign-in not configured` | a property is missing on the server |
+| `not allowed` | valid token, but the email is not in the allowlist |
+| `google sign-in not configured` | no client ID, or no allowlist, on the server |
 | `token check failed` | Google could not be reached |
 
 `GET` with `action` or `key` is refused by name:
@@ -127,7 +152,7 @@ an app older than v1.9 gets — it's a clear failure rather than
 ## 5. Sign in from the app
 
 Toolshed Admin → **Settings** (gear) → **Sign in with Google**. Pick the
-address that is in `ADMIN_EMAILS`. The `/exec` URL is already built in;
+address that is on the allowlist. The `/exec` URL is already built in;
 there is no key field to fill in and no key stored on the device.
 
 ## What the admin API can do
@@ -265,13 +290,15 @@ this file lives in a repo.
   caches the answer by token digest, so a page of requests is one call
   out. The cache entry dies with the token.
 - **The allowlist is the whole of the security.** A Google token proves
-  who signed in; `ADMIN_EMAILS` is what decides whether that person may
-  read staff names and emails. Keep it to real addresses, and keep it
-  short.
-- **A lost phone is fixed in the sheet, not in the app.** Remove the
-  address from `ADMIN_EMAILS`, save. Their next request gets
-  `not allowed`. Google sign-out on the device is not enough on its own —
-  the allowlist is.
+  who signed in; the allowlist is what decides whether that person may
+  read staff names and emails. It is a list of SHA-256 digests, so the
+  repo never carries the addresses themselves — keep it short and keep
+  it accurate.
+- **A lost phone is fixed in the sheet, not in the app.** Remove that
+  person's digest from `ADMIN_EMAIL_HASHES` (or their address from the
+  `ADMIN_EMAILS` property), save, redeploy. Their next request gets
+  `not allowed`. Google sign-out on the device is not enough on its own
+  — the allowlist is.
 - **Rotate the client ID** only by making a new web client, putting its
   ID in the property and in a new app build. Tokens minted for the old
   audience stop verifying at once.

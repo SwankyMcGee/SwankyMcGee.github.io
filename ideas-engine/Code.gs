@@ -168,13 +168,32 @@ const TOKEN_CACHE_KEY_PREFIX = 'gauth:';
 const OAUTH_CLIENT_ID =
   '1007296555959-chqcshefr02pboaf1rebsnbaunmf1nbo.apps.googleusercontent.com';
 
-/* Who may read the sheet. Not a secret either — it is a list of names —
-   but it is the whole of the security, so it stays short and literal:
-   no wildcards, no domains, matched case-insensitively.
+/* Who may read the sheet, as SHA-256 digests.
 
-   The Script Property wins, for the same reason ADMIN_KEY's does:
-   removing someone is an edit to a property, not a redeploy. */
-const ADMIN_EMAILS = 'tjmcclure@mpsaz.org, videogamebrain@gmail.com';
+   The addresses themselves are not in this file, and this file is in a
+   public repo. A token arrives carrying the address in the clear — that
+   is unavoidable, Google put it there — so the check is: hash the
+   address we were given and see whether the digest is on the list.
+
+   What this buys is that a reader of the repo learns nothing from it: no
+   staff addresses, no personal Gmail, nothing to phish. What it costs is
+   that the list cannot be read back. To add someone, run this once in
+   the editor and paste the digest it prints:
+
+       hashEmail_('someone@school.org')
+
+   To take someone off, delete their digest. Either way it is an edit to
+   a constant and a new version of the script — the deployment's /exec
+   URL does not change.
+
+   If you would rather keep the addresses readable, set the ADMIN_EMAILS
+   Script Property (comma-separated) and it wins over the digests. That
+   is the break-glass path, and it keeps them out of the repo either way.
+
+   Matched exactly and case-insensitively: no wildcards, no domains. */
+const ADMIN_EMAIL_HASHES =
+  '0db3b42b2df501b85ef463a8dfcf1b03944508459f6fd11e92468bfc154eeacd, ' +
+  '55601d7d73ad704c65e398ca942b28198b0c03f8d91584d88dba9288a67e7fda';
 
 function adminClientId_() {
   const props = PropertiesService.getScriptProperties();
@@ -183,9 +202,22 @@ function adminClientId_() {
   return String(fromProps || OAUTH_CLIENT_ID || '').trim();
 }
 
+/* The digests the allowlist is made of. A Script Property can override
+   them, which is how a list is changed without touching the file. */
+function adminEmailHashes_() {
+  const fromProps = PropertiesService.getScriptProperties()
+    .getProperty('ADMIN_EMAIL_HASHES');
+  return String(fromProps || ADMIN_EMAIL_HASHES || '')
+    .split(/[,;\s]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/* The plaintext break-glass list. Empty unless someone sets the
+   property, and when it is set it wins — see ADMIN_EMAIL_HASHES. */
 function adminEmails_() {
   const fromProps = PropertiesService.getScriptProperties().getProperty('ADMIN_EMAILS');
-  return String(fromProps || ADMIN_EMAILS || '')
+  return String(fromProps || '')
     .split(/[,;\s]+/)
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
@@ -197,7 +229,7 @@ function adminEmails_() {
    it before it has one. */
 function adminAuth_() {
   return {
-    google: !!adminClientId_() && adminEmails_().length > 0,
+    google: adminConfigured_(),
     key: !!adminKey_(),
     clientId: adminClientId_()
   };
@@ -1016,9 +1048,10 @@ function adminIdentity_(data) {
    compared here — an ID token for any other Google client would
    otherwise be a valid-looking credential. */
 function verifyIdToken_(token) {
+  if (!adminConfigured_()) {
+    return { ok: false, error: 'google sign-in not configured' };
+  }
   const clientId = adminClientId_();
-  if (!clientId) return { ok: false, error: 'google sign-in not configured' };
-  if (!adminEmails_().length) return { ok: false, error: 'google sign-in not configured' };
 
   /* One call per token, not per request. The cache key is a digest of
      the token, so a token is never stored in the cache in a form that
@@ -1060,8 +1093,32 @@ function verifyIdToken_(token) {
   return { ok: true, email: email };
 }
 
+/* The whole of the security, in one place: a token proves who is
+   asking, this decides whether that person may read staff names and
+   emails out of the sheet. Digests first-class, plaintext property as
+   the override. */
 function isAllowedEmail_(email) {
-  return adminEmails_().indexOf(email) >= 0;
+  const candidate = String(email || '').trim().toLowerCase();
+  if (!candidate) return false;
+  const plain = adminEmails_();
+  if (plain.length) return plain.indexOf(candidate) >= 0;
+  return adminEmailHashes_().indexOf(emailDigest_(candidate)) >= 0;
+}
+
+function adminConfigured_() {
+  return !!adminClientId_() &&
+    adminEmails_().length + adminEmailHashes_().length > 0;
+}
+
+/* Run this once in the Apps Script editor to get the digest to paste
+   into ADMIN_EMAIL_HASHES. It is the same hash the allowlist holds, so
+   the answer can be checked by adding it and signing in. */
+function hashEmail_(address) {
+  return emailDigest_(address);
+}
+
+function emailDigest_(address) {
+  return tokenDigest_(String(address || '').trim().toLowerCase());
 }
 
 function tokenDigest_(token) {
