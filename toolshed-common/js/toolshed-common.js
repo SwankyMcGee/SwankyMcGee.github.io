@@ -312,11 +312,36 @@ function initCommon(headerConfig = {}, footerConfig = {}) {
   });
 }
 
+/* ---------- Our Day reminder notices on every Toolshed page ----------
+   ourday-notify.js draws a small top-right toast when a schedule block is
+   about to start. Only load it from the hub (never from disk — the offline
+   tools must stay offline), and never on Our Day's own pages, which load
+   it themselves. */
+
+function loadOurDayNotify() {
+  try {
+    if (location.protocol === 'file:') return;
+    const host = location.hostname;
+    if (host !== 'swankymcgee.github.io' &&
+        host !== 'localhost' && host !== '127.0.0.1') return;
+    if (/^\/our-day(\/|$)/.test(location.pathname)) return;
+    if (document.querySelector('script[data-ourday-notify]')) return;
+    const s = document.createElement('script');
+    s.src = '/our-day/ourday-notify.js';
+    s.dataset.ourdayNotify = '1';
+    s.defer = true;
+    document.head.appendChild(s);
+  } catch (err) { /* never break the host page */ }
+}
+
 /* ---------- Export for ES modules / global ---------- */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { THEMES, STORAGE_KEY, readTheme, patchSettings, writeTheme, motifsOn, syncMotifs, applyTheme, syncPicker, makeHoldable, makeHoldBtn, injectHeader, injectFooter, initCommon };
 } else {
   window.ToolshedCommon = { THEMES, STORAGE_KEY, readTheme, patchSettings, writeTheme, motifsOn, syncMotifs, applyTheme, syncPicker, makeHoldable, makeHoldBtn, injectHeader, injectFooter, initCommon };
+  /* Notices on every page that loads this lib (site, WCT, …) — the site
+     never calls initCommon, so hook it up here at load time. */
+  loadOurDayNotify();
 }
 
 })();
