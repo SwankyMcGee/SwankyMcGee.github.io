@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "updated": "2026-11-16",
+  "updated": "2026-11-18",
   "minSupportedVersionCode": 0,
 
   "features": {
@@ -33,6 +33,14 @@
       "path": "/morning-work/",
       "repoPath": "/morning-work/",
       "blurb": "A calm morning routine — fill in today's date, look at yesterday and tomorrow, pick the weather and find your feeling on the four-color Zones of Regulation chart. One step at a time, with a Skip on every part."
+    },
+    {
+      "id": "our-day",
+      "name": "Our Day",
+      "icon": "clock",
+      "path": "/our-day/",
+      "repoPath": "/our-day/",
+      "blurb": "Your school week in one calm page — build it once in Setup, then follow it on the Today board: what's now, what's next, gentle reminders before every switch, and a check-off for every block."
     }
   ],
 
@@ -55,6 +63,10 @@
 
     { "path": "/morning-work/", "title": "Morning Work", "tool": "morning-work", "kind": "tool" },
     { "path": "/morning-work/index.html", "title": "Morning Work", "tool": "morning-work", "kind": "tool" },
+
+    { "path": "/our-day/", "title": "Our Day", "tool": "our-day", "kind": "tool" },
+    { "path": "/our-day/index.html", "title": "Our Day", "tool": "our-day", "kind": "tool" },
+    { "path": "/our-day/setup.html", "title": "Our Day Setup", "tool": "our-day", "kind": "tool" },
 
     { "path": "/quick-start.html", "title": "Quick start", "tool": "work-cycle-timer", "kind": "resource" },
     { "path": "/user-guide.html", "title": "Full user guide", "tool": "work-cycle-timer", "kind": "resource" },

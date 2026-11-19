@@ -30,7 +30,7 @@ const PAGE_NAMES = {
 };
 
 /* Fallback tool list (manifest is source of truth) */
-const TOOLS = ['Work Cycle Timer', 'Math Playground', 'Morning Work'];
+const TOOLS = ['Work Cycle Timer', 'Math Playground', 'Morning Work', 'Our Day'];
 const MANIFEST_URL = 'site-manifest.json';
 let manifestCache = null;
 
