@@ -220,17 +220,12 @@ dl { margin: .5rem 0; }
 dt { font-weight: 700; margin-top: .8rem; color: var(--accent); }
 dd { margin: .15rem 0 0; }
 
-/* ---------- Footer ---------- */
+/* ---------- Footer (scene, phrase, rotating wisdom come from
+     toolshed-common; the hub only keeps it inside the reading column) ---------- */
 
 .site-foot {
   max-width: 62rem;
   margin: 0 auto;
-  padding: 1rem 1.2rem 2rem;
-  color: var(--dim);
-  font-size: .87rem;
-  border-top: 1px solid var(--border);
-  background: transparent;              /* common fills surface; production is bare */
-  text-align: start;                    /* common centers; production is left */
 }
 
 /* ---------- Header palette picker (site.js injects this) ---------- */

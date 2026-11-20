@@ -440,6 +440,7 @@ if (localStorage.getItem('workCycleTimer.site.news') === NEWS_VERSION) {
 /* ---------- Page initialization ---------- */
 function initPage() {
   injectPicker();
+  ToolshedCommon.upgradeFooters();
   recordLastPage();
   initHome();
   initIdeas();
