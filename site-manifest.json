@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "updated": "2026-11-18",
+  "updated": "2026-11-23",
   "minSupportedVersionCode": 0,
 
   "features": {
@@ -9,22 +9,38 @@
     "replies": true
   },
 
+  "toolGroups": [
+    { "id": "practice", "label": "Practice games", "note": "Calm educational games students can play on their own — every number and word is read aloud." },
+    { "id": "classroom", "label": "Teaching tools", "note": "Teacher-forward tools for running the rhythm of the day." }
+  ],
+
   "tools": [
-    {
-      "id": "work-cycle-timer",
-      "name": "Work Cycle Timer",
-      "icon": "timer",
-      "path": "/work-cycle-timer/timer.html",
-      "repoPath": "/work-cycle-timer/",
-      "blurb": "Two gentle dials: Work and Earn. Hold <span class=\"lbl\">Start Work</span> for 1 second to begin. Works on any device — each browser keeps its own settings."
-    },
     {
       "id": "math-playground",
       "name": "Math Playground",
       "icon": "calculator",
       "path": "/math-playground/",
       "repoPath": "/math-playground/",
+      "group": "practice",
       "blurb": "Four calm math games — Counters, Number Line, Facts and Story Problems. Pick a grade and what to practice. The score only counts successes."
+    },
+    {
+      "id": "word-workshop",
+      "name": "Word Workshop",
+      "icon": "book",
+      "path": "/word-workshop/",
+      "repoPath": "/word-workshop/",
+      "group": "practice",
+      "blurb": "Four calm word games — Word Match, Story Time, Sentence Sense and Word Builder. Every word is read aloud as you tap it, with picture symbols to match."
+    },
+    {
+      "id": "work-cycle-timer",
+      "name": "Work Cycle Timer",
+      "icon": "timer",
+      "path": "/work-cycle-timer/timer.html",
+      "repoPath": "/work-cycle-timer/",
+      "group": "classroom",
+      "blurb": "Two gentle dials: Work and Earn. Hold <span class=\"lbl\">Start Work</span> for 1 second to begin. Works on any device — each browser keeps its own settings."
     },
     {
       "id": "morning-work",
@@ -32,6 +48,7 @@
       "icon": "calendar",
       "path": "/morning-work/",
       "repoPath": "/morning-work/",
+      "group": "classroom",
       "blurb": "A calm morning routine — fill in today's date, look at yesterday and tomorrow, pick the weather and find your feeling on the four-color Zones of Regulation chart. One step at a time, with a Skip on every part."
     },
     {
@@ -40,6 +57,7 @@
       "icon": "clock",
       "path": "/our-day/",
       "repoPath": "/our-day/",
+      "group": "classroom",
       "blurb": "Your school week in one calm page — build it once in Setup, then follow it on the Today board: what's now, what's next, gentle reminders before every switch, and a check-off for every block."
     }
   ],
@@ -67,6 +85,13 @@
     { "path": "/our-day/", "title": "Our Day", "tool": "our-day", "kind": "tool" },
     { "path": "/our-day/index.html", "title": "Our Day", "tool": "our-day", "kind": "tool" },
     { "path": "/our-day/setup.html", "title": "Our Day Setup", "tool": "our-day", "kind": "tool" },
+
+    { "path": "/word-workshop/", "title": "Word Workshop", "tool": "word-workshop", "kind": "tool" },
+    { "path": "/word-workshop/index.html", "title": "Word Workshop", "tool": "word-workshop", "kind": "tool" },
+    { "path": "/word-workshop/match.html", "title": "Word Match", "tool": "word-workshop", "kind": "tool" },
+    { "path": "/word-workshop/story.html", "title": "Story Time", "tool": "word-workshop", "kind": "tool" },
+    { "path": "/word-workshop/sentence.html", "title": "Sentence Sense", "tool": "word-workshop", "kind": "tool" },
+    { "path": "/word-workshop/builder.html", "title": "Word Builder", "tool": "word-workshop", "kind": "tool" },
 
     { "path": "/quick-start.html", "title": "Quick start", "tool": "work-cycle-timer", "kind": "resource" },
     { "path": "/user-guide.html", "title": "Full user guide", "tool": "work-cycle-timer", "kind": "resource" },

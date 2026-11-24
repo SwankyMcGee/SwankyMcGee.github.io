@@ -11,7 +11,7 @@ The site behind the collection — the menu and staff resources for every tool.
 | Page | What it is |
 |---|---|
 | `index.html` | Home — logo hero (`toolshed-logo.png`, transparent, straight on the themed background), chooser **doors** (Tools / Resources), jump-back card, quick links, what's-new ribbon |
-| `tools.html` | Tools hub — cards for each tool (currently: the Work Cycle Timer + The Ideas Engine) |
+| `tools.html` | Tools hub — grouped cards (Practice games, Teaching tools) + The Ideas Engine, rendered from `site-manifest.json` |
 | `ideas.html` | The Ideas Engine — themed suggestion form; posts to a Google Sheet via the Apps Script backend |
 | `ideas-engine/` | Backend for the Ideas Engine — `Code.gs` (the Apps Script) + `SETUP.md` (deploy steps) |
 | `resources.html` | Resources hub — dropdown picks the tool, then its resource cards load on the page |

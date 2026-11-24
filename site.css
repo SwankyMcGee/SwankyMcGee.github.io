@@ -97,6 +97,42 @@ li { margin: .32rem 0; }
   margin-top: 1rem;
 }
 
+/* ---------- Tools hub: grouped sections ----------
+   The hub renders labelled groups (Practice games / Teaching tools)
+   plus the Ideas Engine; each group is a heading over its own card
+   grid, so the page reads as categories rather than one flat pile. */
+
+.tool-groups { margin: 1.4rem 0; }
+
+.tool-section { margin: 0 0 1.7rem; }
+
+.tool-section:first-child h2 { margin-top: .2rem; }
+
+.tool-section h2 { margin-bottom: .1rem; }
+
+.tool-section-note {
+  color: var(--dim);
+  font-size: .95rem;
+  margin: .1rem 0 .9rem;
+}
+
+.tool-section .card { padding: 1.6rem 1.5rem; }
+
+.tool-section .card h3 {
+  font-size: 1.45rem;
+  margin: 0 0 .45rem;
+}
+
+.tool-section .card p {
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.tool-section .card .go {
+  font-size: 1.05rem;
+  margin-top: 1rem;
+}
+
 /* ---------- Tool picker (resources page) ---------- */
 
 .tool-picker {

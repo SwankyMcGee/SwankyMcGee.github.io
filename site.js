@@ -30,7 +30,7 @@ const PAGE_NAMES = {
 };
 
 /* Fallback tool list (manifest is source of truth) */
-const TOOLS = ['Work Cycle Timer', 'Math Playground', 'Morning Work', 'Our Day'];
+const TOOLS = ['Work Cycle Timer', 'Math Playground', 'Word Workshop', 'Morning Work', 'Our Day'];
 const MANIFEST_URL = 'site-manifest.json';
 let manifestCache = null;
 
@@ -76,13 +76,58 @@ function toolCardsHtml(tools) {
   }).join('');
 }
 
+/* ---------- Tools hub (tools.html) ----------
+   Cards render inside labelled sections (Practice games / Teaching
+   tools, from the manifest's toolGroups) plus the Ideas Engine —
+   a site page, not a tool, so it's appended here rather than kept
+   in manifest.tools (where it would leak into the Resources picker
+   and the Ideas form's tool dropdown). */
+const IDEA_CARD_HTML =
+  '<section class="tool-section" data-group="ideas">' +
+    '<h2>Have an idea?</h2>' +
+    '<div class="cards">' +
+      '<a class="card" href="ideas.html" data-tool="ideas">' +
+        '<h3>The Ideas Engine</h3>' +
+        '<p>Have an idea for a change or a whole new tool? Send it in — every idea gets read, ' +
+        'and new tools will appear on this page.</p>' +
+        '<span class="go">Send an idea &rarr;</span>' +
+      '</a>' +
+    '</div>' +
+  '</section>';
+
+function toolSectionHtml(id, label, note, tools) {
+  return '<section class="tool-section" data-group="' + escAttr(id) + '">' +
+    '<h2>' + esc(label) + '</h2>' +
+    (note ? '<p class="tool-section-note">' + esc(note) + '</p>' : '') +
+    '<div class="cards">' + toolCardsHtml(tools) + '</div>' +
+    '</section>';
+}
+
+function toolGroupsHtml(tools, groups) {
+  const gs = Array.isArray(groups) && groups.length
+    ? groups : [{ id: '', label: 'Tools', note: '' }];
+  let html = '';
+  const known = [];
+  for (const g of gs) {
+    known.push(g.id);
+    const mine = tools.filter((t) => (t.group || '') === g.id);
+    if (mine.length) html += toolSectionHtml(g.id, g.label, g.note, mine);
+  }
+  /* A tool whose group isn't listed still shows — never lost. */
+  const rest = tools.filter((t) => known.indexOf(t.group || '') === -1);
+  if (rest.length) {
+    html += toolSectionHtml('more', 'More tools', '', rest);
+  }
+  return html + IDEA_CARD_HTML;
+}
+
 async function initTools() {
   const grid = document.querySelector('[data-render="tools"]');
   if (!grid) return;
   const manifest = await loadManifest();
   const tools = manifest ? manifest.tools : [];
   if (!tools.length) return;
-  grid.innerHTML = toolCardsHtml(tools);
+  grid.innerHTML = toolGroupsHtml(tools, manifest.toolGroups);
 }
 
 /* ---------- Resources hub (resources.html) ---------- */
