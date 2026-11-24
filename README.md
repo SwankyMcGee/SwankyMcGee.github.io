@@ -10,7 +10,7 @@ The site behind the collection — the menu and staff resources for every tool.
 
 | Page | What it is |
 |---|---|
-| `index.html` | Home — logo hero (`toolshed-logo.png`, transparent, straight on the themed background), chooser **doors** (Tools / Resources), jump-back card, quick links, what's-new ribbon |
+| `index.html` | Home — logo hero (`toolshed-logo.png`, transparent, straight on the themed background), chooser **doors** (Tools / Resources / The Ideas Engine), jump-back card, quick links, what's-new ribbon |
 | `tools.html` | Tools hub — grouped cards (Practice games, Teaching tools) + The Ideas Engine, rendered from `site-manifest.json` |
 | `ideas.html` | The Ideas Engine — themed suggestion form; posts to a Google Sheet via the Apps Script backend |
 | `ideas-engine/` | Backend for the Ideas Engine — `Code.gs` (the Apps Script) + `SETUP.md` (deploy steps) |
@@ -33,11 +33,23 @@ Paths on the same domain:
   `https://swankymcgee.github.io/work-cycle-timer/timer.html`
 - Math Playground — `math-playground` repo at
   `https://swankymcgee.github.io/math-playground/`
+- Word Workshop — `word-workshop` repo at
+  `https://swankymcgee.github.io/word-workshop/`
 - Morning Work — `morning-work` repo at
   `https://swankymcgee.github.io/morning-work/`
+- Our Day — `our-day` repo at
+  `https://swankymcgee.github.io/our-day/`
 
-Both read and write the same `localStorage` keys as this site, so the palette
+All read and write the same `localStorage` keys as this site, so the palette
 picked here shows up in the tools and vice versa.
+
+## What's-new ribbon
+
+The home ribbon is the site's patch note. **Update it with every major
+patch**: rewrite the text in `index.html` and bump `NEWS_VERSION` in
+`site.js` to match. The version is the dismissal key — bumping it
+re-shows the ribbon for everyone, including people who dismissed the
+previous one.
 
 ## Adding a tool
 
@@ -52,7 +64,9 @@ including the app, with no app release.
    (e.g. `/some-tool/`).
 2. Add the tool to `site-manifest.json`: an entry in `tools` with its
    `id` (a stable slug — this is the key, not the name), `name`,
-   `path` and `blurb`.
+   `path`, `blurb` and `group` (a `toolGroups` id — `"practice"` for
+   student-facing games, `"classroom"` for teacher-forward tools;
+   anything else lands in a fallback "More tools" section).
 3. Add its staff resources as pages here, then add one `pages` entry per
    page with `"kind": "resource"` and the tool's `id`.
 4. Every new page needs `<script src="site.js"></script>` in its `<head>`
@@ -78,7 +92,9 @@ each row is a `pages` entry waiting to be written.
 
 ## Publishing
 
-`git add -A` → `git commit` → `git push`. Pages rebuilds in about a minute.
+Stage the files you touched **by name** (`git add <file>…` — never
+`git add -A` here; unrelated work-in-progress must stay out of the
+commit) → `git commit` → `git push`. Pages rebuilds in about a minute.
 Check with
 `gh api repos/SwankyMcGee/SwankyMcGee.github.io/pages/builds/latest`.
 

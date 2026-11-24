@@ -14,7 +14,11 @@
 
 /* Site-only constants */
 const SITE_KEY = 'workCycleTimer.site.v1';
-const NEWS_VERSION = '2026-11';
+/* Shown on the home ribbon until dismissed for THIS version. Bump it
+   (any distinct string — a date works) every time the ribbon text
+   changes with a major patch: a dismissal only hides the version it
+   was recorded against, so a bumped ribbon re-shows for everyone. */
+const NEWS_VERSION = '2026-11-23';
 const IDEAS_ENDPOINT =
   'https://script.google.com/macros/s/AkfycbzZG7bLh8EQTsnZN8pfkHiry_gQMT2PFggl7M4Ku1RAUjDgpHDGczpla_dsEXhmIA4jDw/exec';
 
