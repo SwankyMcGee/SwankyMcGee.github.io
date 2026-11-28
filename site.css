@@ -494,10 +494,10 @@ dd { margin: .15rem 0 0; }
 
 /* ---------- Home: door cards ----------
    Three layers: a recess (the destination page's palette-themed mini
-   preview), the door face (whisper-faint plank seams), and an opaque
-   sign nailed over it carrying all the text — so the texture never
-   sits behind words. Hover swings the face open on its left edge
-   (the hinge) to reveal the preview behind it. */
+   preview), the door face (photographed wood grain, tinted to the
+   palette), and an opaque sign nailed over it carrying all the text —
+   so the texture never sits behind words. Hover swings the face open on
+   its right edge (the hinge) to reveal the preview behind it. */
 
 .choose .card.door {
   position: relative;
@@ -532,7 +532,7 @@ dd { margin: .15rem 0 0; }
   height: 100%;
 }
 
-/* — the door face: faint seams, hinges on the left — */
+/* — the door face: real wood grain, tinted by the palette — */
 
 .door-face {
   position: relative;               /* in flow — this is what gives the card its height */
@@ -544,14 +544,18 @@ dd { margin: .15rem 0 0; }
   transform: rotateY(0deg);
   transition: transform .45s cubic-bezier(.34, .72, .3, 1);
   background-color: var(--surface-2);   /* the door, around the sign */
-  /* whisper-faint plank seams — they only show in the frame around the
-     sign now, so they never compete with the text */
-  background-image: repeating-linear-gradient(
-    90deg,
-    transparent 0 46px,
-    rgba(127, 127, 127, .07) 46px 47px,
-    transparent 47px 48px
-  );
+  /* a photographed plank texture under a palette-tinted wash, so the grain
+     reads as wood but the door still follows all 11 palettes. The wash sits
+     on top of the image; the sign covers the middle, so the grain shows
+     mainly in the frame around it. */
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--surface-2) 58%, transparent),
+      color-mix(in srgb, var(--surface-2) 58%, transparent)
+    ),
+    url("door-wood.jpg");
+  background-size: cover, cover;
+  background-position: center, center;
 }
 
 .choose .card.door:hover .door-face,
